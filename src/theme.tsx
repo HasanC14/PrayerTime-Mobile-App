@@ -1,0 +1,170 @@
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useColorScheme } from "react-native";
+
+import type { ThemeMode } from "./types";
+
+export const lightColors = {
+  ink: "#24143A",
+  inkSoft: "#746A7D",
+  accent: "#6F4B94",
+  accentPressed: "#583B78",
+  onAccent: "#FFFFFF",
+  primaryButton: "#24143A",
+  onPrimary: "#FFFFFF",
+  accentSurface: "#F1E5F5",
+  white: "#FFFFFF",
+  background: "#F9F6FC",
+  backgroundTint: "#F1E6FA",
+  surface: "#FFFFFF",
+  surfaceMuted: "#F4EEF8",
+  selectedSurface: "#F1E8F7",
+  border: "#ECE5F1",
+  borderStrong: "#D9CBE4",
+  heroStart: "#E3D2F3",
+  heroEnd: "#C5A7E2",
+  heroMuted: "#6E5B7D",
+  heroTrack: "rgba(255,255,255,0.48)",
+  warningSurface: "#FFF7E8",
+  warningBorder: "#E9C978",
+  warningText: "#6D5220",
+  danger: "#B33A3A",
+  dangerHeroStart: "#FBE1E1",
+  dangerHeroEnd: "#EFB9B9",
+  dangerHeroMuted: "#8C3030",
+  dangerHeroTrack: "rgba(255,255,255,0.52)",
+  dangerSurface: "#FCEAEA",
+  success: "#2E7653",
+  successSurface: "#E9F6EF",
+  sheetHandle: "#D8CDDD",
+  muted: "#B8AFBE",
+  mutedStrong: "#CFC7D4",
+  compassSurface: "#F4ECFA",
+  compassBorder: "#D8C4E8",
+  compassTicks: "#BFA6D6",
+  compassTail: "#CDB8DE",
+  backdrop: "rgba(29, 17, 45, 0.38)"
+} as const;
+
+export const darkColors: ThemeColors = {
+  ink: "#F7F0FB",
+  inkSoft: "#BBAFC5",
+  accent: "#C39BE5",
+  accentPressed: "#D4B3EF",
+  onAccent: "#1A1022",
+  primaryButton: "#7C54A1",
+  onPrimary: "#FFFFFF",
+  accentSurface: "#352446",
+  white: "#FFFFFF",
+  background: "#100B16",
+  backgroundTint: "#21142E",
+  surface: "#1C1425",
+  surfaceMuted: "#2A1E35",
+  selectedSurface: "#332244",
+  border: "#34263F",
+  borderStrong: "#4D395B",
+  heroStart: "#3C2850",
+  heroEnd: "#60417C",
+  heroMuted: "#D6C3E3",
+  heroTrack: "rgba(255,255,255,0.24)",
+  warningSurface: "#352B18",
+  warningBorder: "#7D6630",
+  warningText: "#F1D38A",
+  danger: "#FF9696",
+  dangerHeroStart: "#542323",
+  dangerHeroEnd: "#7A3030",
+  dangerHeroMuted: "#FFD1D1",
+  dangerHeroTrack: "rgba(255,255,255,0.24)",
+  dangerSurface: "#391D22",
+  success: "#7AD6A6",
+  successSurface: "#173526",
+  sheetHandle: "#63536E",
+  muted: "#716678",
+  mutedStrong: "#574C60",
+  compassSurface: "#261A31",
+  compassBorder: "#4D365F",
+  compassTicks: "#70528A",
+  compassTail: "#806497",
+  backdrop: "rgba(0, 0, 0, 0.55)"
+};
+
+export type ThemeColors = { [Key in keyof typeof lightColors]: string };
+
+type ThemeContextValue = {
+  colors: ThemeColors;
+  isDark: boolean;
+  resolvedMode: "light" | "dark";
+};
+
+const ThemeContext = createContext<ThemeContextValue>({
+  colors: lightColors,
+  isDark: false,
+  resolvedMode: "light"
+});
+
+export function AppThemeProvider({ mode, children }: { mode: ThemeMode; children: ReactNode }) {
+  const systemScheme = useColorScheme();
+  const resolvedMode = mode === "system" ? (systemScheme === "dark" ? "dark" : "light") : mode;
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      colors: resolvedMode === "dark" ? darkColors : lightColors,
+      isDark: resolvedMode === "dark",
+      resolvedMode
+    }),
+    [resolvedMode]
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function useAppTheme(): ThemeContextValue {
+  return useContext(ThemeContext);
+}
+
+export function createThemedStyles<Styles>(factory: (colors: ThemeColors) => Styles) {
+  const lightStyles = factory(lightColors);
+  const darkStyles = factory(darkColors);
+  return function useThemedStyles(): { colors: ThemeColors; styles: Styles; isDark: boolean } {
+    const theme = useAppTheme();
+    return {
+      colors: theme.colors,
+      styles: theme.isDark ? darkStyles : lightStyles,
+      isDark: theme.isDark
+    };
+  };
+}
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32
+} as const;
+
+export const radii = {
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  sheet: 28,
+  pill: 999
+} as const;
+
+export const shadows = {
+  card: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 3
+  },
+  hero: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 8
+  }
+} as const;

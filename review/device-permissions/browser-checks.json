@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "new install does not silently use Dhaka",
+    "explicit Dhaka selection is labeled manual",
+    "saved manual city is distinguished from a phone location",
+    "web notification status is truthful",
+    "current-location action replaces manual Dhaka with synthetic London coordinates",
+    "phone fix shows coordinates, source, and accuracy",
+    "foreground travel updates phone coordinates offline",
+    "prayer calculations continue offline after travel",
+    "permission failure keeps previous location and offers recovery",
+    "restored phone coordinates are labeled cached until a new fix"
+  ],
+  "errors": [],
+  "note": "390×844 web preview using synthetic GPS. Does not verify real Android permissions, notification delivery, or GPS acquisition."
+}

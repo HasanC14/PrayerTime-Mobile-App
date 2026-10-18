@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "scenario": "phone",
+      "samples": 76,
+      "durationMs": 1341,
+      "titleAnimated": true,
+      "motionObserved": true,
+      "font": "BricolageGrotesque_800ExtraBold",
+      "subtitlePresent": false,
+      "reachedOnboarding": true
+    },
+    {
+      "scenario": "compact",
+      "samples": 77,
+      "durationMs": 1322,
+      "titleAnimated": true,
+      "motionObserved": true,
+      "font": "BricolageGrotesque_800ExtraBold",
+      "subtitlePresent": false,
+      "reachedOnboarding": true
+    },
+    {
+      "scenario": "reduced-motion",
+      "samples": 3,
+      "durationMs": 35,
+      "titleAnimated": false,
+      "motionObserved": false,
+      "font": "BricolageGrotesque_800ExtraBold",
+      "subtitlePresent": false,
+      "reachedOnboarding": true
+    }
+  ],
+  "errors": [],
+  "note": "Web rendering checks. Native launch transition still requires a rebuilt iOS/Android app."
+}
