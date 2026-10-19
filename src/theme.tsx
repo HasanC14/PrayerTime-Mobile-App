@@ -1,5 +1,6 @@
+import { useI18n } from "./i18n/context";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useColorScheme } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 
 import type { ThemeMode } from "./types";
 
@@ -13,7 +14,7 @@ export const lightColors = {
   onPrimary: "#FFFFFF",
   accentSurface: "#F1E5F5",
   white: "#FFFFFF",
-  background: "#F9F6FC",
+  background: "#F6F4F8",
   backgroundTint: "#F1E6FA",
   surface: "#FFFFFF",
   surfaceMuted: "#F4EEF8",
@@ -123,11 +124,27 @@ export function useAppTheme(): ThemeContextValue {
 export function createThemedStyles<Styles>(factory: (colors: ThemeColors) => Styles) {
   const lightStyles = factory(lightColors);
   const darkStyles = factory(darkColors);
+  // React Native Web resolves start/end against the device direction. Resolve
+  // them here so an in-app language change also updates physical spacing.
+  const forDirection = (styles: Styles, rtl: boolean): Styles => Platform.OS !== "web" ? styles : Object.fromEntries(
+    Object.entries(styles as Record<string, object>).map(([name, style]) => [name, Object.fromEntries(
+      Object.entries(style).map(([key, value]) => {
+        const logical = key.match(/^(margin|padding)?(Start|End)$/) ?? key.match(/^(start|end)$/);
+        if (!logical) return [key, value];
+        const prefix = logical.length === 3 ? logical[1] ?? "" : "";
+        const start = key.toLowerCase().endsWith("start");
+        const side = start !== rtl ? "Left" : "Right";
+        return [prefix ? prefix + side : side.toLowerCase(), value];
+      })
+    )])
+  ) as Styles;
+  const directional = { ltr: { light: forDirection(lightStyles, false), dark: forDirection(darkStyles, false) }, rtl: { light: forDirection(lightStyles, true), dark: forDirection(darkStyles, true) } };
   return function useThemedStyles(): { colors: ThemeColors; styles: Styles; isDark: boolean } {
     const theme = useAppTheme();
+    const { isRTL } = useI18n();
     return {
       colors: theme.colors,
-      styles: theme.isDark ? darkStyles : lightStyles,
+      styles: directional[isRTL ? "rtl" : "ltr"][theme.isDark ? "dark" : "light"],
       isDark: theme.isDark
     };
   };
@@ -155,10 +172,10 @@ export const radii = {
 export const shadows = {
   card: {
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 3
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    elevation: 0
   },
   hero: {
     shadowColor: "#000000",

@@ -1,9 +1,14 @@
+import { useTextScale } from "../typography";
+import { weekdayShort } from "../i18n/translate";
+import { useI18n } from "../i18n/context";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconButton, SurfaceCard } from "../components/ui";
+import { IconButton, ScreenHeader, SurfaceCard } from "../components/ui";
+import { selectionFeedback } from "../utils/feedback";
 import { DEFAULT_SETTINGS, DEFAULT_PRAYER_ALARMS, PRAYER_EVENT_META } from "../constants/settings";
 import { getMonthFromDateKey, getMonthGrid } from "../services/calendar";
 import { getPrayerPeriodsForDate } from "../services/prayerPeriods";
@@ -33,7 +38,11 @@ export function CalendarScreen({
   now: Date;
 }) {
   const { colors, styles } = useStyles();
+  const { language, locale, isRTL, t } = useI18n();
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const textScale = useTextScale();
+  const compact = width < 360 || fontScale * textScale > 1.2 || language === "bn";
   const todayKey = getDateKeyInTimeZone(now, location.timeZone);
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const [visibleMonth, setVisibleMonth] = useState(() => getMonthFromDateKey(todayKey));
@@ -53,6 +62,8 @@ export function CalendarScreen({
 
   const calculationSettings = useMemo<AppSettings>(
     () => ({
+      language: "en",
+      textScale: 1,
       method: settings.method,
       school: settings.school,
       midnightMode: settings.midnightMode,
@@ -93,11 +104,12 @@ export function CalendarScreen({
     }
     return getPrayerPeriodsForDate(nextDay ? [selectedDay, nextDay] : [selectedDay], selectedKey);
   }, [calculatedDays, calculationSettings, location, selectedDay, selectedKey]);
-  const monthLabel = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" }).format(
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(Date.UTC(visibleMonth.year, visibleMonth.monthIndex, 1, 12))
   );
 
   const moveMonth = (offset: number) => {
+    selectionFeedback();
     const next = new Date(Date.UTC(visibleMonth.year, visibleMonth.monthIndex + offset, 1, 12));
     const year = next.getUTCFullYear();
     const monthIndex = next.getUTCMonth();
@@ -111,36 +123,30 @@ export function CalendarScreen({
   };
 
   return (
+    <View style={styles.screen}>
+    <ScreenHeader title="Calendar" subtitle={location.name} action={
+      <Pressable accessibilityRole="button" accessibilityLabel="Return to today" onPress={returnToToday} style={styles.todayButton}>
+        <Text style={styles.todayButtonText}>Today</Text>
+      </Pressable>
+    } />
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: Math.max(insets.top, spacing.xl), paddingBottom: spacing.xxl }
+        { paddingTop: spacing.xs, paddingBottom: Math.max(insets.bottom, spacing.xxl) }
       ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.page}>
-        <View style={styles.header}>
-          <View>
-            <Text accessibilityRole="header" style={styles.title}>
-              Calendar
-            </Text>
-            <Text style={styles.subtitle}>{location.name}</Text>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Return to today" onPress={returnToToday} style={styles.todayButton}>
-            <Text style={styles.todayButtonText}>Today</Text>
-          </Pressable>
-        </View>
-
         <SurfaceCard style={styles.calendarCard}>
           <View style={styles.monthHeader}>
-            <IconButton icon="chevron-back" label="Previous month" onPress={() => moveMonth(-1)} />
-            <Text style={styles.monthTitle}>{monthLabel}</Text>
-            <IconButton icon="chevron-forward" label="Next month" onPress={() => moveMonth(1)} />
+            <IconButton icon={isRTL ? "chevron-forward" : "chevron-back"} label="Previous month" onPress={() => moveMonth(-1)} />
+            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={styles.monthTitle}>{monthLabel}</Text>
+            <IconButton icon={isRTL ? "chevron-back" : "chevron-forward"} label="Next month" onPress={() => moveMonth(1)} />
           </View>
           <View style={styles.weekRow}>
             {WEEKDAYS.map((day) => (
-              <Text accessibilityLabel={day.label} key={day.label} style={styles.weekday}>
-                {day.short}
+              <Text accessibilityLabel={day.label} maxFontSizeMultiplier={1.3} key={day.label} style={styles.weekday}>
+                {weekdayShort(day.label, language)}
               </Text>
             ))}
           </View>
@@ -153,20 +159,21 @@ export function CalendarScreen({
                 <Pressable
                   key={cell.dateKey}
                   accessibilityRole="button"
-                  accessibilityLabel={`${cell.dateKey}${isToday ? ", today" : ""}`}
+                  accessibilityLabel={`${new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${cell.dateKey}T12:00:00Z`))}${isToday ? `, ${t("Today")}` : ""}`}
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    selectionFeedback();
                     setSelectedKey(cell.dateKey);
                     if (!cell.inCurrentMonth) setVisibleMonth(getMonthFromDateKey(cell.dateKey));
                   }}
                   style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
                 >
                   <View style={[styles.dayCircle, selected && styles.dayCircleSelected, isToday && !selected && styles.dayCircleToday]}>
-                    <Text style={[styles.dayNumber, !cell.inCurrentMonth && styles.dayNumberMuted, selected && styles.dayNumberSelected]}>
+                    <Text maxFontSizeMultiplier={1.3} style={[styles.dayNumber, !cell.inCurrentMonth && styles.dayNumberMuted, selected && styles.dayNumberSelected]}>
                       {cell.day}
                     </Text>
                   </View>
-                  <Text style={[styles.hijriDay, !cell.inCurrentMonth && styles.hijriDayMuted]}>{hijriDay || ""}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={[styles.hijriDay, !cell.inCurrentMonth && styles.hijriDayMuted]}>{hijriDay || ""}</Text>
                 </Pressable>
               );
             })}
@@ -176,7 +183,7 @@ export function CalendarScreen({
         <View style={styles.selectedHeader}>
           <View>
             <Text style={styles.selectedDate}>
-              {new Intl.DateTimeFormat(undefined, {
+              {new Intl.DateTimeFormat(locale, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -204,12 +211,15 @@ export function CalendarScreen({
                   <View style={styles.prayerCopy}>
                     <Text style={styles.prayerName}>{name}</Text>
                     {name === "Sunrise" ? <Text style={styles.eventText}>Solar event</Text> : null}
+                    {compact ? <Text style={[styles.prayerTime, { marginTop: 4 }]}>{name === "Sunrise"
+                      ? formatPrayerTime(selectedDay.instants.Sunrise, settings.timeFormat, location.timeZone, language)
+                      : formatPrayerTimeRange(period?.start, period?.end, settings.timeFormat, location.timeZone, language)}</Text> : null}
                   </View>
-                  {name === "Sunrise" ? (
+                  {compact ? null : name === "Sunrise" ? (
                     <View style={styles.prayerTimeRange}>
                       <Text style={styles.prayerTimeLabel}>At</Text>
                       <Text style={styles.prayerTime}>
-                        {formatPrayerTime(selectedDay.instants.Sunrise, settings.timeFormat, location.timeZone)}
+                        {formatPrayerTime(selectedDay.instants.Sunrise, settings.timeFormat, location.timeZone, language)}
                       </Text>
                     </View>
                   ) : (
@@ -219,7 +229,7 @@ export function CalendarScreen({
                           period?.start,
                           period?.end,
                           settings.timeFormat,
-                          location.timeZone,
+                          location.timeZone, language,
                         )}
                       </Text>
                     </View>
@@ -236,32 +246,34 @@ export function CalendarScreen({
         </SurfaceCard>
       </View>
     </ScrollView>
+    </View>
   );
 }
 
 const useStyles = createThemedStyles((colors) => StyleSheet.create({
-  content: { flexGrow: 1, paddingHorizontal: spacing.lg },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1, paddingHorizontal: spacing.xl },
   page: { alignSelf: "center", maxWidth: 620, width: "100%" },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xl },
   title: { color: colors.ink, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
   subtitle: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 13, marginTop: 3 },
-  todayButton: { alignItems: "center", backgroundColor: colors.surface, borderRadius: radii.pill, justifyContent: "center", minHeight: 42, paddingHorizontal: spacing.lg },
+  todayButton: { alignItems: "center", backgroundColor: colors.accentSurface, borderRadius: radii.pill, justifyContent: "center", minHeight: 44, paddingHorizontal: spacing.lg },
   todayButtonText: { color: colors.accent, fontFamily: "BricolageGrotesque_700Bold", fontSize: 13, fontWeight: "700" },
   calendarCard: { padding: spacing.md },
   monthHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
-  monthTitle: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 17, fontWeight: "700" },
+  monthTitle: { flex: 1, textAlign: "center", color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 17, fontWeight: "700" },
   weekRow: { flexDirection: "row", marginBottom: spacing.xs },
   weekday: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_700Bold", fontSize: 11, fontWeight: "700", textAlign: "center", width: "14.2857%" },
   grid: { flexDirection: "row", flexWrap: "wrap" },
-  cell: { alignItems: "center", height: 54, justifyContent: "center", width: "14.2857%" },
+  cell: { alignItems: "center", minHeight: 54, paddingVertical: 4, justifyContent: "center", width: "14.2857%" },
   cellPressed: { opacity: 0.6 },
-  dayCircle: { alignItems: "center", borderRadius: 16, height: 32, justifyContent: "center", width: 32 },
+  dayCircle: { alignItems: "center", borderRadius: 16, minHeight: 32, justifyContent: "center", minWidth: 32 },
   dayCircleSelected: { backgroundColor: colors.accent },
   dayCircleToday: { borderColor: colors.accent, borderWidth: 1 },
-  dayNumber: { color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "600" },
+  dayNumber: { color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 14, fontVariant: ["tabular-nums"], fontWeight: "600" },
   dayNumberMuted: { color: colors.muted },
   dayNumberSelected: { color: colors.onAccent, fontFamily: "BricolageGrotesque_800ExtraBold", fontWeight: "800" },
-  hijriDay: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 8, height: 11, marginTop: 1 },
+  hijriDay: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 10, minHeight: 13, marginTop: 2 },
   hijriDayMuted: { color: colors.mutedStrong },
   selectedHeader: { marginBottom: spacing.md, marginTop: spacing.xl, paddingHorizontal: spacing.xs },
   selectedDate: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 20, fontWeight: "700" },
@@ -269,7 +281,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   scheduleCard: { overflow: "hidden" },
   prayerRow: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: spacing.lg },
   prayerBorder: { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
-  prayerIcon: { alignItems: "center", height: 32, justifyContent: "center", marginRight: spacing.md, width: 32 },
+  prayerIcon: { alignItems: "center", height: 32, justifyContent: "center", marginEnd: spacing.md, width: 32 },
   prayerCopy: { flex: 1 },
   prayerName: { color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 14, fontWeight: "600" },
   eventText: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 9, marginTop: 1 },

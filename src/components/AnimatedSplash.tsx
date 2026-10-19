@@ -1,30 +1,15 @@
+import { useI18n } from "../i18n/context";
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Text } from "../i18n/native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { BrandMark } from "./BrandMark";
 import Svg, { Defs, LinearGradient as SvgGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 
 const useNativeDriver = Platform.OS !== "web";
 export const SPLASH_BACKGROUND = "#B99ADB";
-
-function MosqueMark({ height }: { height: number }) {
-  return (
-    <Svg width={height * 0.64} height={height} viewBox="0 0 120 188" fill="none">
-      <Defs>
-        <SvgGradient id="mosque" x1="20" y1="0" x2="104" y2="188" gradientUnits="userSpaceOnUse">
-          <Stop stopColor="#FAF0FF" />
-          <Stop offset="1" stopColor="#D8BCEB" />
-        </SvgGradient>
-      </Defs>
-      <Path d="M64 2C44 2 34 18 39 33C44 49 64 52 77 39C63 45 49 35 49 21C49 13 55 6 64 2Z" fill="url(#mosque)" />
-      <Path d="M78 3L82 15H95L85 23L89 35L78 28L67 35L71 23L61 15H74Z" fill="url(#mosque)" />
-      <Path d="M60 57C53 69 16 78 16 101C16 110 20 117 25 123H95C100 117 104 110 104 101C104 78 67 69 60 57Z" fill="url(#mosque)" stroke="#F8EEFF" strokeOpacity="0.35" />
-      <Rect x="13" y="126" width="94" height="8" rx="4" fill="url(#mosque)" />
-      <Path fillRule="evenodd" d="M22 138H98V186H71V155C71 141 49 141 49 155V186H22V138ZM27 153C27 143 41 143 41 153V170H27V153ZM79 153C79 143 93 143 93 153V170H79V153Z" fill="url(#mosque)" />
-    </Svg>
-  );
-}
 
 function Arches() {
   return (
@@ -49,6 +34,7 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
   onFinished: () => void;
 }) {
   const { width, height } = useWindowDimensions();
+  const { t } = useI18n();
   const [laidOut, setLaidOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -119,7 +105,7 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
   return (
     <Animated.View
       testID="animated-splash"
-      accessibilityLabel="PrayerTime is loading"
+      accessibilityLabel={t("PrayerTime is loading")}
       accessibilityRole="progressbar"
       onLayout={() => setLaidOut(true)}
       style={[styles.screen, { opacity }]}
@@ -151,10 +137,10 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
         <Animated.View style={{ opacity: logo, transform: [
           { translateY: logo.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
           { scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }
-        ] }}><MosqueMark height={logoHeight} /></Animated.View>
+        ] }}><BrandMark height={logoHeight} color="#FAF0FF" endColor="#D8BCEB" /></Animated.View>
         <Animated.View style={{ opacity: title, transform: [{ translateY: title.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
-          <Text allowFontScaling={false} style={[styles.title, { fontSize: Math.min(width * 0.095, 40) }]}>
-            PRAYERTIME
+          <Text localize={false} allowFontScaling={false} style={[styles.title, { fontSize: Math.min(width * 0.095, 40) }]}>
+            PrayerTime
           </Text>
         </Animated.View>
       </View>
@@ -170,6 +156,6 @@ const styles = StyleSheet.create({
   screen: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: SPLASH_BACKGROUND, overflow: "hidden", zIndex: 10 },
   arches: { position: "absolute", bottom: 0, left: 0, right: 0 },
   brand: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: 20 },
-  title: { color: "#FFFFFF", fontFamily: "BricolageGrotesque_800ExtraBold", letterSpacing: 1.2, lineHeight: 52, textAlign: "center" },
+  title: { color: "#FFFFFF", fontFamily: "BricolageGrotesque_800ExtraBold", letterSpacing: -0.4, lineHeight: 52, textAlign: "center" },
   sparkle: { position: "absolute" }
 });

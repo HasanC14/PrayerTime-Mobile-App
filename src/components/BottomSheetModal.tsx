@@ -1,19 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  Animated,
-  Easing,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-  type StyleProp,
-  type ViewStyle
-} from "react-native";
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable } from "../i18n/native";
 
 import { createThemedStyles } from "../theme";
+import { useI18n } from "../i18n/context";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
 const BACKDROP_DURATION_MS = 170;
 const SHEET_DURATION_MS = 240;
@@ -32,10 +23,12 @@ export function BottomSheetModal({
   children: ReactNode;
 }) {
   const { styles } = useStyles();
+  const { isRTL } = useI18n();
   const { height } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
   const [rendered, setRendered] = useState(visible);
   const [backdropOpacity] = useState(() => new Animated.Value(0));
-  const [sheetTranslateY] = useState(() => new Animated.Value(height));
+  const [sheetProgress] = useState(() => new Animated.Value(1));
 
   if (visible && !rendered) setRendered(true);
 
@@ -43,40 +36,41 @@ export function BottomSheetModal({
     let frameId: number | undefined;
     let cancelled = false;
     backdropOpacity.stopAnimation();
-    sheetTranslateY.stopAnimation();
+    sheetProgress.stopAnimation();
 
     if (visible) {
       backdropOpacity.setValue(0);
-      sheetTranslateY.setValue(height);
+      sheetProgress.setValue(1);
       frameId = requestAnimationFrame(() => {
-        Animated.sequence([
+        Animated.parallel([
           Animated.timing(backdropOpacity, {
-            duration: BACKDROP_DURATION_MS,
+            duration: reducedMotion ? 0 : BACKDROP_DURATION_MS,
             easing: Easing.out(Easing.quad),
             toValue: 1,
-            useNativeDriver: true
+            useNativeDriver: Platform.OS !== "web"
           }),
-          Animated.timing(sheetTranslateY, {
-            duration: SHEET_DURATION_MS,
+          Animated.timing(sheetProgress, {
+            duration: reducedMotion ? 0 : SHEET_DURATION_MS,
             easing: Easing.out(Easing.cubic),
             toValue: 0,
-            useNativeDriver: true
+            useNativeDriver: Platform.OS !== "web"
           })
         ]).start();
       });
     } else if (rendered) {
-      Animated.sequence([
-        Animated.timing(sheetTranslateY, {
-          duration: SHEET_DURATION_MS,
+      Keyboard.dismiss();
+      Animated.parallel([
+        Animated.timing(sheetProgress, {
+          duration: reducedMotion ? 0 : SHEET_DURATION_MS,
           easing: Easing.in(Easing.cubic),
-          toValue: height,
-          useNativeDriver: true
+          toValue: 1,
+          useNativeDriver: Platform.OS !== "web"
         }),
         Animated.timing(backdropOpacity, {
-          duration: BACKDROP_DURATION_MS,
+          duration: reducedMotion ? 0 : BACKDROP_DURATION_MS,
           easing: Easing.in(Easing.quad),
           toValue: 0,
-          useNativeDriver: true
+          useNativeDriver: Platform.OS !== "web"
         })
       ]).start(({ finished }) => {
         if (finished && !cancelled) setRendered(false);
@@ -86,12 +80,14 @@ export function BottomSheetModal({
     return () => {
       cancelled = true;
       if (frameId !== undefined) cancelAnimationFrame(frameId);
+      backdropOpacity.stopAnimation();
+      sheetProgress.stopAnimation();
     };
-  }, [backdropOpacity, height, rendered, sheetTranslateY, visible]);
+  }, [backdropOpacity, reducedMotion, rendered, sheetProgress, visible]);
 
   return (
-    <Modal animationType="none" transparent visible={rendered} onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.root}>
+    <Modal animationType="none" transparent visible={rendered} onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <View style={[styles.root, { direction: isRTL ? "rtl" : "ltr" }]}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <Pressable
             accessibilityRole="button"
@@ -105,7 +101,7 @@ export function BottomSheetModal({
           pointerEvents="box-none"
           style={styles.sheetArea}
         >
-          <Animated.View style={[sheetStyle, { transform: [{ translateY: sheetTranslateY }] }]}>
+          <Animated.View accessibilityViewIsModal style={[sheetStyle, { transform: [{ translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}>
             {children}
           </Animated.View>
         </KeyboardAvoidingView>

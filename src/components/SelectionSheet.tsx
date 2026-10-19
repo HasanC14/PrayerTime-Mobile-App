@@ -1,10 +1,12 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { createThemedStyles, radii, shadows, spacing } from "../theme";
 import { BottomSheetModal } from "./BottomSheetModal";
-import { IconButton } from "./ui";
+import { SheetHeader } from "./SheetHeader";
+import { selectionFeedback } from "../utils/feedback";
 
 interface SelectionOption {
   id: string | number;
@@ -36,18 +38,13 @@ export function SelectionSheet({
       onClose={onClose}
       sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
     >
-        <View accessibilityViewIsModal>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.title}>
-              {title}
-            </Text>
-            <IconButton icon="close" label={`Close ${title}`} onPress={onClose} />
-          </View>
+        <View accessibilityViewIsModal style={{ flexShrink: 1 }}>
+          <SheetHeader title={title} onClose={onClose} />
           <ScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            style={{ flexShrink: 1 }}
           >
             {options.map((option) => {
               const selected = option.id === value;
@@ -59,6 +56,7 @@ export function SelectionSheet({
                   accessibilityHint={option.description}
                   accessibilityState={{ selected, checked: selected }}
                   onPress={() => {
+                    selectionFeedback();
                     onSelect(option.id);
                     onClose();
                   }}
@@ -72,9 +70,7 @@ export function SelectionSheet({
                     <Text style={[styles.optionName, selected && styles.optionNameSelected]}>{option.name}</Text>
                     {option.description ? <Text style={styles.optionDescription}>{option.description}</Text> : null}
                   </View>
-                  <View style={[styles.radio, selected && styles.radioSelected]}>
-                    {selected ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
-                  </View>
+                  <Ionicons name={selected ? "checkmark-circle" : "ellipse-outline"} size={24} color={selected ? colors.accent : colors.borderStrong} />
                 </Pressable>
               );
             })}
@@ -93,7 +89,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     maxHeight: "86%",
     maxWidth: 620,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+    paddingTop: 0,
     width: "100%",
     ...shadows.card
   },
@@ -112,19 +108,19 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     marginBottom: spacing.md
   },
   title: { color: colors.ink, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 24, fontWeight: "800" },
-  content: { gap: spacing.sm, paddingBottom: spacing.xl },
+  content: { paddingBottom: spacing.xl },
   option: {
     alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderWidth: 1,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
     flexDirection: "row",
     minHeight: 66,
     padding: spacing.lg
   },
-  optionSelected: { backgroundColor: colors.selectedSurface, borderColor: colors.borderStrong },
+  optionSelected: { backgroundColor: colors.selectedSurface },
   optionPressed: { backgroundColor: colors.surfaceMuted },
-  optionCopy: { flex: 1, paddingRight: spacing.lg },
+  optionCopy: { flex: 1, paddingEnd: spacing.lg },
   optionName: { color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 16, fontWeight: "600" },
   optionNameSelected: { fontFamily: "BricolageGrotesque_800ExtraBold", fontWeight: "800" },
   optionDescription: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 13, lineHeight: 18, marginTop: spacing.xs },

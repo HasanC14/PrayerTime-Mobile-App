@@ -1,21 +1,27 @@
+import { locales, translateMessage } from "../i18n/translate";
 import { PRAYER_NAMES } from "../types";
-import type { PrayerDay, PrayerName, PrayerState, TimeFormat } from "../types";
+import type { AppLanguage, PrayerDay, PrayerName, PrayerState, TimeFormat } from "../types";
 
-export function formatPrayerTime(date: Date | undefined, format: TimeFormat, timeZone: string): string {
+function localizeTimePeriod(value: string, language: AppLanguage): string {
+  return language === "bn" ? value.replace(/AM/g, "পূর্বাহ্ণ").replace(/PM/g, "অপরাহ্ণ") : value;
+}
+
+export function formatPrayerTime(date: Date | undefined, format: TimeFormat, timeZone: string, language: AppLanguage = "en"): string {
   if (!date || !Number.isFinite(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, {
+  return localizeTimePeriod(new Intl.DateTimeFormat(locales[language], {
     timeZone,
     hour: "numeric",
     minute: "2-digit",
     ...(format === "12h" ? { hour12: true } : { hourCycle: "h23" })
-  }).format(date);
+  }).format(date), language);
 }
 
 export function formatPrayerTimeRange(
   start: Date | undefined,
   end: Date | undefined,
   format: TimeFormat,
-  timeZone: string
+  timeZone: string,
+  language: AppLanguage = "en"
 ): string {
   if (
     !start ||
@@ -26,13 +32,13 @@ export function formatPrayerTimeRange(
     return "—";
   }
 
-  const formatter = new Intl.DateTimeFormat(undefined, {
+  const formatter = new Intl.DateTimeFormat(locales[language], {
     timeZone,
     hour: "numeric",
     minute: "2-digit",
     ...(format === "12h" ? { hour12: true } : { hourCycle: "h23" })
   });
-  const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+  const normalize = (value: string) => localizeTimePeriod(value.replace(/\s+/g, " ").trim(), language);
   const startText = normalize(formatter.format(start));
   const endText = normalize(formatter.format(end));
 
@@ -54,16 +60,16 @@ export function formatPrayerTimeRange(
     : `${startText} – ${endText}`;
 }
 
-export function formatDuration(durationMs: number): string {
-  if (!Number.isFinite(durationMs) || durationMs <= 0) return "Now";
+export function formatDuration(durationMs: number, language: AppLanguage = "en"): string {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return translateMessage("Now", language);
   const totalMinutes = Math.max(1, Math.floor(durationMs / 60_000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${minutes}m`;
+  return translateMessage(hours > 0 ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${minutes}m`, language);
 }
 
-export function formatLongDate(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatLongDate(date: Date, timeZone: string, language: AppLanguage = "en"): string {
+  return new Intl.DateTimeFormat(locales[language], {
     timeZone,
     weekday: "long",
     month: "long",
@@ -71,8 +77,8 @@ export function formatLongDate(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-export function formatShortDate(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatShortDate(date: Date, timeZone: string, language: AppLanguage = "en"): string {
+  return new Intl.DateTimeFormat(locales[language], {
     timeZone,
     month: "short",
     day: "numeric"

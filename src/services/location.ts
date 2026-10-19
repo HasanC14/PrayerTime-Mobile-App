@@ -98,7 +98,7 @@ export async function getCurrentDeviceLocation(explicitRequest = false, signal?:
       mayShowUserSettingsDialog: false,
       distanceInterval: 0,
       timeInterval: 1000
-    }, onFix, (message) => onError(new DeviceLocationError("unavailable", `Your phone could not return a location fix. ${message}`, true))), explicitRequest ? 45_000 : 25_000, signal);
+    }, onFix, (message) => onError(new DeviceLocationError("unavailable", `Your phone could not find your location. ${message}`, true))), explicitRequest ? 45_000 : 25_000, signal);
     return positionToLocation(position);
   } catch (error) {
     if (error instanceof DeviceLocationError) throw error;

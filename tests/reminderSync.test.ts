@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { syncPrayerReminders, type PendingReminder, type ReminderAdapter } from "../src/services/reminderSync";
+import { reminderTimingKey } from "../src/services/reminderSetup";
 
 function harness(identifiers: string[] = []) {
   const pending = new Map<string, PendingReminder>(identifiers.map((identifier) => [identifier, { identifier, content: { data: { kind: "prayer-end-alarm" } } }]));
@@ -28,6 +29,16 @@ test("resuming repeatedly retains existing reminders without duplicates", async 
   assert.equal(await syncPrayerReminders(desired, h.adapter), 2);
   assert.equal(await syncPrayerReminders(desired, h.adapter), 2);
   assert.deepEqual(h.scheduled, ["isha"]);
+});
+
+test("granting precise timing replaces existing inexact reminders without duplicates", async () => {
+  const oldId = `prayer-end:Fajr:123:30:${reminderTimingKey(false)}`;
+  const newId = `prayer-end:Fajr:123:30:${reminderTimingKey(true)}`;
+  const h = harness([oldId]);
+  await syncPrayerReminders([{ identifier: newId }], h.adapter);
+  await syncPrayerReminders([{ identifier: newId }], h.adapter);
+  assert.deepEqual([...h.pending.keys()], [newId]);
+  assert.deepEqual(h.scheduled, [newId]);
 });
 
 test("a city change replaces all 35 alarms without exceeding iOS's pending limit", async () => {

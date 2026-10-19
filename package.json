@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "main": "expo/AppEntry",
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  },
   "scripts": {
     "start": "expo start",
     "start:phone": "expo start --tunnel",
@@ -16,6 +21,8 @@
   },
   "dependencies": {
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
+    "@expo-google-fonts/noto-sans-arabic": "^0.4.3",
+    "@expo-google-fonts/noto-sans-bengali": "^0.4.4",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.18.8",

@@ -1,8 +1,10 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useI18n } from "../i18n/context";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconButton } from "../components/ui";
+import { SheetHeader } from "../components/SheetHeader";
 import { BottomSheetModal } from "../components/BottomSheetModal";
 import { createThemedStyles, radii, shadows, spacing } from "../theme";
 import type { PrayerDay, TimeFormat } from "../types";
@@ -20,6 +22,7 @@ export function GuidanceSheet({
   timeFormat: TimeFormat;
 }) {
   const { colors, styles } = useStyles();
+  const { language } = useI18n();
   const insets = useSafeAreaInsets();
   if (!day) return null;
 
@@ -40,19 +43,10 @@ export function GuidanceSheet({
       onClose={onClose}
       sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
     >
-        <View accessibilityViewIsModal>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <View style={styles.titleBlock}>
-              <Text accessibilityRole="header" style={styles.title}>
-                Prohibited prayer times
-              </Text>
-              <Text style={styles.subtitle}>Reference time ranges</Text>
-            </View>
-            <IconButton icon="close" label="Close prayer-time guidance" onPress={onClose} />
-          </View>
+        <View accessibilityViewIsModal style={{ flexShrink: 1 }}>
+          <SheetHeader title="Prohibited prayer times" subtitle="Reference time ranges" onClose={onClose} />
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.notice}>
               <Ionicons name="information-circle-outline" size={22} color={colors.warningText} />
               <Text style={styles.noticeText}>
@@ -72,7 +66,7 @@ export function GuidanceSheet({
                         item.start,
                         item.end,
                         timeFormat,
-                        day.timeZone,
+                        day.timeZone, language,
                       )}
                     </Text>
                   </View>
@@ -95,13 +89,13 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     maxHeight: "88%",
     maxWidth: 620,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: 0,
     width: "100%",
     ...shadows.card
   },
   handle: { alignSelf: "center", backgroundColor: colors.sheetHandle, borderRadius: radii.pill, height: 5, marginBottom: spacing.lg, width: 44 },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.lg },
-  titleBlock: { flex: 1, paddingRight: spacing.md },
+  titleBlock: { flex: 1, paddingEnd: spacing.md },
   title: { color: colors.ink, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 23, fontWeight: "800", letterSpacing: -0.4 },
   subtitle: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, marginTop: 2 },
   content: { gap: spacing.md, paddingBottom: spacing.xl },
@@ -130,7 +124,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderRadius: radii.md,
     height: 42,
     justifyContent: "center",
-    marginRight: spacing.md,
+    marginEnd: spacing.md,
     width: 42
   },
   itemCopy: { flex: 1 },

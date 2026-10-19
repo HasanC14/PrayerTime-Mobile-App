@@ -41,7 +41,7 @@ export async function resolveNotificationAccess(adapter: NotificationAccessAdapt
 export function notificationAccessMessage(access: NotificationAccess): string | null {
   if (access.status === "unsupported") return "Prayer notifications are available in the Android or iOS app. This web preview cannot request phone notification permission.";
   if (access.status === "blocked") return "Notifications are blocked in phone settings. Enable them there, then return to PrayerTime.";
-  if (access.status === "denied") return "Notification permission was not granted. Tap Enable reminders to try again.";
+  if (access.status === "denied") return "Notification permission was not granted. Turn on Prayer reminders to try again.";
   if (access.status === "undetermined") return "Enable reminders to open your phone’s notification permission request.";
   if (access.channelBlocked) return "The Prayer times notification channel is disabled. Enable it in phone notification settings.";
   if (!access.soundEnabled && access.status === "granted") return "Sound is turned off for prayer notifications. You can change it in phone notification settings.";

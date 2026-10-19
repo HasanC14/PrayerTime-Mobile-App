@@ -1,4 +1,4 @@
-import type { LocationSearchResult } from "../types";
+import type { AppLanguage, LocationSearchResult } from "../types";
 
 const LOCATIONIQ_BASE_URL = "https://us1.locationiq.com/v1";
 const LOCATIONIQ_TIMEOUT_MS = 12_000;
@@ -139,7 +139,7 @@ export async function reverseGeocodeLocation(
   };
 }
 
-export async function searchLocations(query: string): Promise<LocationSearchResult[]> {
+export async function searchLocations(query: string, language: AppLanguage = "en"): Promise<LocationSearchResult[]> {
   const normalizedQuery = query.trim();
   if (normalizedQuery.length < 2) {
     throw new LocationIqError("Enter at least two characters to search.");
@@ -147,7 +147,8 @@ export async function searchLocations(query: string): Promise<LocationSearchResu
 
   const places = await fetchLocationIq<LocationIqPlace[]>("search", {
     q: normalizedQuery,
-    limit: "6"
+    limit: "6",
+    "accept-language": language
   });
   const seen = new Set<string>();
   const results: LocationSearchResult[] = [];

@@ -1,16 +1,10 @@
+import { useTextScale } from "../typography";
+import { useI18n } from "../i18n/context";
 import { useMemo } from "react";
-import {
-  Image,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import type { ImageStyle } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, Text } from "../i18n/native";
+import { PrayerHeroCard } from "../components/PrayerHeroCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SurfaceCard } from "../components/ui";
@@ -21,9 +15,8 @@ import {
 } from "../constants/settings";
 import { getDateKeyInTimeZone } from "../services/prayerTimes";
 import { getPrayerFocus, getPrayerPeriods } from "../services/prayerPeriods";
-import { createThemedStyles, radii, shadows, spacing } from "../theme";
+import { createThemedStyles, radii, spacing } from "../theme";
 import { PRAYER_NAMES } from "../types";
-import { locationSourceLabel } from "../utils/locationStatus";
 import type {
   AppLocation,
   AppSettings,
@@ -33,11 +26,9 @@ import type {
   PrayerState,
 } from "../types";
 import {
-  formatDuration,
   formatLongDate,
   formatPrayerTime,
   formatPrayerTimeRange,
-  formatRelativeLocationAge,
   getProgressBetween,
 } from "../utils/time";
 import type { PrayerGuidanceWindow } from "../utils/time";
@@ -82,7 +73,11 @@ export function HomeScreen({
   onRetry: () => void;
 }) {
   const { colors, styles } = useStyles();
+  const { language, t } = useI18n();
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const textScale = useTextScale();
+  const compact = width < 360 || fontScale * textScale > 1.2 || language === "bn";
   const timeZone = location.timeZone;
   const todayKey = getDateKeyInTimeZone(now, timeZone);
   const nextKey = prayerState.next
@@ -127,25 +122,8 @@ export function HomeScreen({
   );
 
   return (
-    <ScrollView
-      refreshControl={
-        <RefreshControl
-          refreshing={locating}
-          onRefresh={onRefresh}
-          tintColor={colors.accent}
-        />
-      }
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: Math.max(insets.top, spacing.lg),
-          paddingBottom: spacing.xxl,
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.page}>
-        <View style={styles.appBar}>
+    <View style={styles.screen}>
+        <View style={[styles.appBar, { paddingTop: insets.top + 8 }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Current location, ${location.name}`}
@@ -161,10 +139,7 @@ export function HomeScreen({
               <Text numberOfLines={1} style={styles.locationName}>
                 {location.name}
               </Text>
-              <Text numberOfLines={1} style={styles.locationStatus}>
-                {locationSourceLabel(location)}{" "}
-                · {formatRelativeLocationAge(location.capturedAt)}
-              </Text>
+
             </View>
           </Pressable>
           <Pressable
@@ -184,6 +159,24 @@ export function HomeScreen({
           </Pressable>
         </View>
 
+    <ScrollView
+      refreshControl={
+        <RefreshControl
+          refreshing={locating}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+        />
+      }
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.xxl,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.page}>
         {locationIssue || notificationIssue || locating ? (
           <View accessibilityLiveRegion="polite" style={styles.notice}>
             <Ionicons
@@ -218,83 +211,8 @@ export function HomeScreen({
           </SurfaceCard>
         ) : (
           <>
-            <LinearGradient
-              colors={
-                guidance
-                  ? [colors.dangerHeroStart, colors.dangerHeroEnd]
-                  : [colors.heroStart, colors.heroEnd]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.hero}
-            >
-              <View style={styles.heroCopy}>
-                <View style={styles.heroHeading}>
-                  {guidance ? (
-                    <Ionicons
-                      name="warning-outline"
-                      size={19}
-                      color={colors.danger}
-                    />
-                  ) : null}
-                  <Text
-                    style={[
-                      styles.heroPrayer,
-                      guidance && styles.heroPrayerDanger,
-                    ]}
-                  >
-                    {guidance ? "Prohibited time" : prayerFocus.prayer}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.heroPhase,
-                      guidance && styles.heroPhaseDanger,
-                    ]}
-                  >
-                    {guidance
-                      ? "ends in"
-                      : prayerFocus.phase === "ends"
-                        ? "ends in"
-                        : "starts in"}
-                  </Text>
-                </View>
-                <Text
-                  accessibilityLiveRegion="polite"
-                  adjustsFontSizeToFit
-                  numberOfLines={1}
-                  style={[
-                    styles.remainingTime,
-                    guidance && styles.remainingTimeDanger,
-                  ]}
-                >
-                  {formatDuration(heroRemaining)}
-                </Text>
-              </View>
-              <Image
-                source={require("../../assets/logo512.png")}
-                resizeMode="contain"
-                style={[
-                  styles.heroArtwork,
-                  guidance && styles.heroArtworkDanger,
-                ] as ImageStyle}
-              />
-              <View style={styles.progressArea}>
-                <View
-                  style={[
-                    styles.progressTrack,
-                    guidance && styles.progressTrackDanger,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.progressFill,
-                      guidance && styles.progressFillDanger,
-                      { width: `${heroProgress}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-            </LinearGradient>
+            <PrayerHeroCard focus={prayerFocus} remaining={heroRemaining} progress={heroProgress} guidance={guidance}
+              next={prayerState.next} timeFormat={settings.timeFormat} timeZone={timeZone} />
 
             <View style={styles.dateStrip}>
               <View>
@@ -303,7 +221,7 @@ export function HomeScreen({
                   <Text style={styles.hijriDate}>{hijriLabel}</Text>
                 ) : null}
                 <Text style={styles.gregorianDate}>
-                  {formatLongDate(now, timeZone)}
+                  {formatLongDate(now, timeZone, language)}
                 </Text>
               </View>
             </View>
@@ -328,7 +246,7 @@ export function HomeScreen({
                       guidance.start,
                       guidance.end,
                       settings.timeFormat,
-                      timeZone,
+                      timeZone, language,
                     )}
                   </Text>
                   <Text numberOfLines={1} style={styles.guidanceText}>
@@ -357,7 +275,7 @@ export function HomeScreen({
                   {formatPrayerTime(
                     today.instants.Sunrise,
                     settings.timeFormat,
-                    timeZone,
+                    timeZone, language,
                   )}
                 </Text>
               </View>
@@ -368,7 +286,7 @@ export function HomeScreen({
                   {formatPrayerTime(
                     today.instants.Maghrib,
                     settings.timeFormat,
-                    timeZone,
+                    timeZone, language,
                   )}
                 </Text>
               </View>
@@ -385,7 +303,7 @@ export function HomeScreen({
                     {formatPrayerTime(
                       today.instants.Fajr,
                       settings.timeFormat,
-                      timeZone,
+                      timeZone, language,
                     )}
                   </Text>
                 </View>
@@ -396,7 +314,7 @@ export function HomeScreen({
                     {formatPrayerTime(
                       today.instants.Maghrib,
                       settings.timeFormat,
-                      timeZone,
+                      timeZone, language,
                     )}
                   </Text>
                 </View>
@@ -464,12 +382,15 @@ export function HomeScreen({
                           {name}
                         </Text>
                         {isNext ? (
-                          <Text style={styles.nextTag}>NEXT</Text>
+                          <Text numberOfLines={1} style={styles.nextTag}>NEXT</Text>
                         ) : null}
                       </View>
+                      {compact ? <Text style={[styles.prayerTime, styles.compactTime, isNext && styles.prayerTimeNext]}>
+                        {formatPrayerTimeRange(period?.start, period?.end, settings.timeFormat, timeZone, language)}
+                      </Text> : null}
                     </View>
-                    <View
-                      accessibilityLabel={`${name} starts ${formatPrayerTime(period?.start, settings.timeFormat, timeZone)} and ends ${formatPrayerTime(period?.end, settings.timeFormat, timeZone)}`}
+                    {!compact ? <View
+                      accessibilityLabel={t("{prayer} starts {start} and ends {end}", { prayer: name, start: formatPrayerTime(period?.start, settings.timeFormat, timeZone, language), end: formatPrayerTime(period?.end, settings.timeFormat, timeZone, language) })}
                       style={styles.prayerTimeRange}
                     >
                       <Text
@@ -483,13 +404,13 @@ export function HomeScreen({
                           period?.start,
                           period?.end,
                           settings.timeFormat,
-                          timeZone,
+                          timeZone, language,
                         )}
                       </Text>
-                    </View>
+                    </View> : null}
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`${name} alarm, ${alarmMinutes === null ? "off" : `${alarmMinutes} minutes before end`}${settings.notificationsEnabled ? "" : ", notifications disabled"}`}
+                      accessibilityLabel={`${alarmMinutes === null ? t("{prayer} reminder, off", { prayer: name }) : t("{prayer} reminder, {minutes} minutes before end", { prayer: name, minutes: alarmMinutes })}${settings.notificationsEnabled ? "" : t(", notifications disabled")}`}
                       hitSlop={4}
                       onPress={() => void onTogglePrayerAlarm(name)}
                       style={({ pressed }) => [
@@ -513,17 +434,23 @@ export function HomeScreen({
         )}
       </View>
     </ScrollView>
+    </View>
   );
 }
 
 const useStyles = createThemedStyles((colors) => StyleSheet.create({
-  content: { flexGrow: 1, paddingHorizontal: spacing.lg },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1, paddingHorizontal: spacing.xl },
   page: { alignSelf: "center", maxWidth: 620, width: "100%" },
   appBar: {
     alignItems: "center",
     flexDirection: "row",
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.md,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 660,
   },
   locationButton: {
     alignItems: "center",
@@ -542,8 +469,8 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   locationStatus: {
     color: colors.inkSoft,
     fontFamily: "BricolageGrotesque_400Regular",
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 3,
   },
   coffeeButton: {
     alignItems: "center",
@@ -567,82 +494,6 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontFamily: "BricolageGrotesque_400Regular",
     fontSize: 12,
   },
-  hero: {
-    borderRadius: radii.xl,
-    marginBottom: spacing.lg,
-    minHeight: 148,
-    overflow: "hidden",
-    padding: spacing.lg,
-    paddingBottom: 38,
-    ...shadows.card,
-  },
-  heroCopy: {
-    flex: 1,
-    justifyContent: "center",
-    paddingBottom: spacing.xs,
-    zIndex: 2,
-  },
-  heroHeading: {
-    alignItems: "baseline",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  heroPrayer: {
-    color: colors.ink,
-    fontFamily: "BricolageGrotesque_800ExtraBold",
-    fontSize: 19,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-  heroPrayerDanger: { color: colors.danger },
-  heroPhase: {
-    color: colors.heroMuted,
-    fontFamily: "BricolageGrotesque_700Bold",
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 1,
-  },
-  heroPhaseDanger: { color: colors.dangerHeroMuted },
-  remainingTime: {
-    color: colors.ink,
-    fontFamily: "BricolageGrotesque_800ExtraBold",
-    fontSize: 42,
-    fontVariant: ["tabular-nums"],
-    fontWeight: "800",
-    letterSpacing: -1.2,
-    marginTop: 1,
-    maxWidth: "65%",
-  },
-  remainingTimeDanger: { color: colors.danger },
-  heroArtwork: {
-    height: 118,
-    opacity: 0.22,
-    position: "absolute",
-    right: 12,
-    tintColor: colors.accent,
-    top: 7,
-    width: 118,
-  },
-  heroArtworkDanger: { tintColor: colors.danger },
-  progressArea: {
-    bottom: spacing.md,
-    left: spacing.lg,
-    position: "absolute",
-    right: spacing.lg,
-  },
-  progressTrack: {
-    backgroundColor: colors.heroTrack,
-    borderRadius: radii.pill,
-    height: 4,
-    overflow: "hidden",
-  },
-  progressTrackDanger: { backgroundColor: colors.dangerHeroTrack },
-  progressFill: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    height: "100%",
-  },
-  progressFillDanger: { backgroundColor: colors.danger },
   dateStrip: { marginBottom: spacing.lg, paddingHorizontal: spacing.xs },
   dateLabel: {
     color: colors.inkSoft,
@@ -697,7 +548,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderRadius: radii.sm,
     height: 34,
     justifyContent: "center",
-    marginRight: spacing.md,
+    marginEnd: spacing.md,
     width: 34,
   },
   summaryItem: { flex: 1 },
@@ -737,8 +588,8 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   scheduleMethod: {
     color: colors.inkSoft,
     fontFamily: "BricolageGrotesque_400Regular",
-    fontSize: 9,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 3,
   },
   infoButton: {
     alignItems: "center",
@@ -749,7 +600,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   prayerRow: {
     alignItems: "center",
     flexDirection: "row",
-    minHeight: 56,
+    minHeight: 64,
     paddingHorizontal: spacing.md,
     position: "relative",
   },
@@ -763,7 +614,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderBottomRightRadius: 2,
     borderTopRightRadius: 2,
     bottom: 5,
-    left: 0,
+    start: 0,
     position: "absolute",
     top: 5,
     width: 3,
@@ -772,7 +623,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     alignItems: "center",
     height: 32,
     justifyContent: "center",
-    marginRight: spacing.sm,
+    marginEnd: spacing.sm,
     width: 32,
   },
   prayerCopy: { flex: 1 },
@@ -788,17 +639,19 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontWeight: "700",
   },
   nextTag: {
+    flexShrink: 0,
     backgroundColor: colors.accent,
     borderRadius: radii.pill,
     color: colors.onAccent,
     fontFamily: "BricolageGrotesque_800ExtraBold",
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "800",
     overflow: "hidden",
     paddingHorizontal: 5,
     paddingVertical: 2,
   },
   prayerTimeRange: { alignItems: "flex-end", minWidth: 112 },
+  compactTime: { marginTop: 4 },
   prayerTime: {
     color: colors.ink,
     fontFamily: "BricolageGrotesque_700Bold",
@@ -811,7 +664,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     alignItems: "center",
     height: 44,
     justifyContent: "center",
-    marginLeft: spacing.xs,
+    marginStart: spacing.xs,
     width: 44,
   },
   errorCard: { alignItems: "center", gap: spacing.sm, padding: spacing.xxl },

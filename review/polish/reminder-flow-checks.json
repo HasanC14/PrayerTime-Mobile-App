@@ -1,0 +1,12 @@
+{
+  "results": [
+    "Toggle asks for notifications first; timing guidance needs a tap; Later keeps reminders enabled",
+    "Granted access is reused without another setup prompt",
+    "Blocked access offers settings; returning with permission completes the pending toggle",
+    "Later cancels an unfinished notification setup; granting permission separately does not turn reminders on",
+    "Home bells share setup and preserve the selected prayer; timing permission refreshes scheduling on return",
+    "Turning the master toggle off cancels scheduled reminders"
+  ],
+  "errors": [],
+  "note": "Runs the real application hook in React with mocked native permission and scheduling adapters. Does not replace physical Android permission testing."
+}

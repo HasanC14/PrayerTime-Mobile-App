@@ -1,15 +1,20 @@
 import { useCallback, useState, type ComponentProps } from "react";
-import { Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, StyleSheet, View } from "react-native";
+import { Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useI18n } from "../i18n/context";
 import type { usePrayerTimeApp } from "../hooks/usePrayerTimeApp";
 import { CalendarScreen } from "../screens/CalendarScreen";
 import { GuidanceSheet } from "../screens/GuidanceSheet";
 import { HomeScreen } from "../screens/HomeScreen";
 import { QiblaScreen } from "../screens/QiblaScreen";
+import { useTextScale } from "../typography";
+import { TasbeehScreen } from "../screens/TasbeehScreen";
+import { TasbeehIcon } from "../components/TasbeehIcon";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import type { SettingsSection } from "../screens/SettingsScreen";
 import { createThemedStyles } from "../theme";
@@ -18,6 +23,7 @@ type AppController = ReturnType<typeof usePrayerTimeApp>;
 type RootTabParamList = {
   Prayer: undefined;
   Qibla: undefined;
+  Tasbeeh: undefined;
   Calendar: undefined;
   Settings: { section?: SettingsSection; requestId?: number } | undefined;
 };
@@ -30,12 +36,15 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 const TAB_ICONS: Record<keyof RootTabParamList, { active: ComponentProps<typeof Ionicons>["name"]; inactive: ComponentProps<typeof Ionicons>["name"] }> = {
   Prayer: { active: "time", inactive: "time-outline" },
   Qibla: { active: "compass", inactive: "compass-outline" },
+  Tasbeeh: { active: "ellipse", inactive: "ellipse-outline" },
   Calendar: { active: "calendar", inactive: "calendar-clear-outline" },
   Settings: { active: "settings", inactive: "settings-outline" }
 };
 
 export function AppTabs({ app }: { app: AppController }) {
   const { colors, styles } = useStyles();
+  const { t } = useI18n();
+  const textScale = useTextScale();
   const insets = useSafeAreaInsets();
   const [guidanceOpen, setGuidanceOpen] = useState(false);
   const { openLocationSettings: openPhoneSettings, refreshDeviceLocation } = app;
@@ -60,6 +69,7 @@ export function AppTabs({ app }: { app: AppController }) {
         }}
         screenOptions={({ route }) => ({
           headerShown: false,
+          tabBarAccessibilityLabel: t(route.name),
           lazy: true,
           sceneStyle: styles.scene,
           tabBarActiveTintColor: colors.accent,
@@ -69,13 +79,13 @@ export function AppTabs({ app }: { app: AppController }) {
           tabBarStyle: [
             styles.tabBar,
             {
-              height: 62 + Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6),
+              height: 62 + (textScale > 1.15 ? 16 : 0) + Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6),
               paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6)
             }
           ],
           tabBarIcon: ({ focused, color }) => (
             <View style={[styles.iconPill, focused && styles.iconPillActive]}>
-              <Ionicons name={focused ? TAB_ICONS[route.name].active : TAB_ICONS[route.name].inactive} size={focused ? 22 : 21} color={color} />
+              {route.name === "Tasbeeh" ? <TasbeehIcon size={focused ? 24 : 23} color={color} /> : <Ionicons name={focused ? TAB_ICONS[route.name].active : TAB_ICONS[route.name].inactive} size={focused ? 22 : 21} color={color} />}
             </View>
           ),
           tabBarLabel: ({ focused, color }) => (
@@ -121,6 +131,7 @@ export function AppTabs({ app }: { app: AppController }) {
             />
           )}
         </Tab.Screen>
+        <Tab.Screen name="Tasbeeh" component={TasbeehScreen} />
         <Tab.Screen name="Calendar">
           {() => <CalendarScreen location={app.location!} settings={app.settings} now={app.now} />}
         </Tab.Screen>
@@ -133,7 +144,7 @@ export function AppTabs({ app }: { app: AppController }) {
               locating={app.locating}
               locationIssue={app.locationIssue}
               locationProgress={app.locationProgress}
-              notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, issue: app.notificationIssue, testMessage: app.testNotificationMessage, onEnable: app.setNotificationsEnabled, onTest: app.testNotification, onOpenSettings: app.openNotificationSettings }}
+              notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
               onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
               onSearchLocations={app.searchLocations}
               onUseManualLocation={app.useManualLocation}
@@ -170,16 +181,16 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
-    elevation: 10,
+    elevation: 0,
     paddingTop: 5,
     shadowColor: colors.ink,
     shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.025,
     shadowRadius: 12
   },
   tabItem: { minHeight: 50 },
-  tabLabel: { fontFamily: "BricolageGrotesque_500Medium", fontSize: 10, fontWeight: "500", marginTop: -1 },
+  tabLabel: { fontFamily: "BricolageGrotesque_500Medium", fontSize: 10, fontWeight: "500", textAlign: "center", marginTop: -1 },
   tabLabelActive: { fontFamily: "BricolageGrotesque_800ExtraBold", fontWeight: "800" },
-  iconPill: { alignItems: "center", height: 29, justifyContent: "center", width: 42 },
-  iconPillActive: { transform: [{ scale: 1.04 }] }
+  iconPill: { alignItems: "center", height: 30, justifyContent: "center", width: 52, borderRadius: 16 },
+  iconPillActive: { backgroundColor: colors.selectedSurface }
 }));

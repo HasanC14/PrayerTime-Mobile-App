@@ -16,6 +16,6 @@ export function CoffeeSupportIcon({
     () => COFFEE_ICON_SVG.replaceAll("#0D0C22", primaryColor).replaceAll("#FD0", accentColor),
     [accentColor, primaryColor]
   );
-  return <SvgXml accessibilityLabel="Buy me a coffee" height={size} width={size} xml={xml} />;
+  return <SvgXml accessible={false} height={size} width={size} xml={xml} />;
 }
 

@@ -21,12 +21,16 @@ export interface LocationSearchResult {
   countryCode?: string;
 }
 
+export type AppLanguage = "en" | "bn" | "ar";
+
 export type TimeFormat = "12h" | "24h";
 export type RamadanMode = "auto" | "always" | "off";
 export type ThemeMode = "system" | "light" | "dark";
 export type PrayerAlarmSettings = Record<"Fajr" | "Dhuhr" | "Asr" | "Maghrib" | "Isha", number | null>;
 
 export interface AppSettings {
+  language: AppLanguage;
+  textScale: number;
   method: "auto" | number;
   school: 0 | 1;
   midnightMode: 0 | 1;

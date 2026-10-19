@@ -1,0 +1,14 @@
+{
+  "results": [
+    "Presets keep independent counts, undo works, and counting continues past the target",
+    "Custom dhikr accepts local numerals and restores its selection, target and count after reload",
+    "Reset requires confirmation and clears only the chosen counter",
+    "Custom deletion confirms inside one sheet and preserves preset counts",
+    "Dragging the text-size slider works",
+    "Global font size updates all five screens",
+    "Text size keyboard controls and reset work",
+    "Bangla, Arabic, dark appearance and compact layouts render",
+    "Largest text size renders in Bangla and Arabic on all screens at 320 pixels"
+  ],
+  "errors": []
+}

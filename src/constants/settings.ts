@@ -21,6 +21,8 @@ export const FALLBACK_LOCATION: AppLocation = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  language: "en",
+  textScale: 1,
   school: 1,
   method: "auto",
   midnightMode: 0,

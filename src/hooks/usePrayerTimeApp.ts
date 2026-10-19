@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Linking, type AppStateStatus } from "react-native";
+import { AppState, type AppStateStatus } from "react-native";
 import * as Haptics from "expo-haptics";
 import tzLookup from "tz-lookup";
 
@@ -18,8 +18,6 @@ import { searchLocations } from "../services/locationIq";
 import {
   cancelPrayerNotifications,
   getNotificationAccess,
-  listenForTestNotification,
-  scheduleTestNotification,
   schedulePrayerNotifications
 } from "../services/notifications";
 import { calculatePrayerCalendar, getDateKeyInTimeZone } from "../services/prayerTimes";
@@ -28,10 +26,11 @@ import {
   mergeRecentLocations,
   saveLocation,
   saveRecentLocations,
-  saveSettings,
-  saveNotificationSetupSeen
+  saveSettings
 } from "../services/storage";
 import { notificationAccessMessage } from "../services/notificationAccess";
+import { getExactAlarmAccess, openExactAlarmSettings, openNotificationSettings } from "../services/reminderDeviceAccess";
+import { enableReminderSelection, reminderSetupStep, type ReminderSelection, type ReminderSetupStep } from "../services/reminderSetup";
 import { PRAYER_NAMES } from "../types";
 import type {
   AppLocation,
@@ -63,8 +62,8 @@ export function usePrayerTimeApp() {
   const [notificationIssue, setNotificationIssue] = useState<string | null>(null);
   const [notificationAccess, setNotificationAccess] = useState<NotificationAccess>({ status: "unknown", canAskAgain: true, channelBlocked: false, soundEnabled: true, bannersEnabled: true });
   const [notificationBusy, setNotificationBusy] = useState(false);
-  const [notificationSetupSeen, setNotificationSetupSeen] = useState(true);
-  const [testNotificationMessage, setTestNotificationMessage] = useState<string | null>(null);
+  const [notificationSetupStep, setNotificationSetupStep] = useState<ReminderSetupStep>(null);
+  const [exactAlarmAllowed, setExactAlarmAllowed] = useState<boolean | null>(null);
   const [locationProgress, setLocationProgress] = useState<string | null>(null);
   const [calculationRevision, setCalculationRevision] = useState(0);
   const [foregroundRevision, setForegroundRevision] = useState(0);
@@ -76,6 +75,9 @@ export function usePrayerTimeApp() {
   const deviceRefreshIdRef = useRef(0);
   const locationAbortRef = useRef<AbortController | null>(null);
   const notificationRequestRef = useRef<Promise<boolean> | null>(null);
+  const pendingReminderRef = useRef<ReminderSelection | null>(null);
+  const reminderEnableRef = useRef<Promise<boolean> | null>(null);
+  const reminderFlowRevisionRef = useRef(0);
   const notificationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const notificationRevisionRef = useRef(0);
 
@@ -145,7 +147,7 @@ export function usePrayerTimeApp() {
             if (shouldApplyQuickLocation) {
               await applyDeviceLocation(quickLocation);
               quickLocationApplied = true;
-              if (isCurrentRequest()) setLocationProgress("Using a cached phone fix while finding a current position…");
+              if (isCurrentRequest()) setLocationProgress("Updating your location…");
             }
           }
         } catch {
@@ -161,7 +163,7 @@ export function usePrayerTimeApp() {
           if (isCurrentRequest()) {
             setLocationIssue({
               code: "unavailable",
-              message: "A current phone fix was unavailable. Times use the cached phone coordinates shown in Settings. Tap Use current phone location to retry.",
+              message: "Your current location is unavailable. Prayer times use your saved location. Tap Use current phone location to try again.",
               canOpenSettings: true
             });
           }
@@ -194,7 +196,6 @@ export function usePrayerTimeApp() {
         setLocation(persisted.location);
         locationRef.current = persisted.location;
         setRecentLocations(persisted.recentLocations);
-        setNotificationSetupSeen(persisted.notificationSetupSeen);
         restoreDeviceLocation = shouldRestoreDeviceLocation(persisted.location);
       } catch (error) {
         console.warn("Unable to restore saved PrayerTime data", error);
@@ -216,17 +217,24 @@ export function usePrayerTimeApp() {
   useEffect(() => {
     if (booting) return;
     let active = true;
-    void getNotificationAccess().then((access) => {
-      if (active) setNotificationAccess(access);
+    void Promise.all([getNotificationAccess(false, settings.language), getExactAlarmAccess().catch(() => null)]).then(([access, exact]) => {
+      if (!active) return;
+      setNotificationAccess(access);
+      setExactAlarmAllowed(exact);
+      const selection = pendingReminderRef.current;
+      if (selection && access.status === "granted" && !access.channelBlocked && !reminderEnableRef.current) {
+        pendingReminderRef.current = null;
+        setSettings(current => enableReminderSelection(current, selection));
+        setNotificationIssue(notificationAccessMessage(access));
+        setNotificationSetupStep(reminderSetupStep(access, exact));
+      } else if (exact === true) {
+        setNotificationSetupStep(current => current === "timing" ? null : current);
+      }
     }).catch(() => {
-      if (active) setNotificationIssue("Could not check notification access. Tap Enable reminders to try again.");
+      if (active) setNotificationIssue("Could not check reminder access. Turn on Prayer reminders to try again.");
     });
     return () => { active = false; };
-  }, [booting, foregroundRevision]);
-
-  useEffect(() => listenForTestNotification(() => {
-    if (mountedRef.current) setTestNotificationMessage("Test reminder received. Check its banner and sound on your phone.");
-  }), []);
+  }, [booting, foregroundRevision, settings.language]);
 
   useEffect(() => {
     if (!bootedRef.current) return;
@@ -325,7 +333,9 @@ export function usePrayerTimeApp() {
             const result = await schedulePrayerNotifications(
               calculation.calendar,
               settings.prayerAlarmMinutes ?? DEFAULT_PRAYER_ALARMS,
-              false
+              false,
+              exactAlarmAllowed,
+              settings.language
             );
             if (revision !== notificationRevisionRef.current) return;
             if (!result.scheduled && result.reason === "permission" && mountedRef.current) {
@@ -348,10 +358,12 @@ export function usePrayerTimeApp() {
     booting,
     calculation.calendar,
     calculation.error,
+    settings.language,
     settings.notificationsEnabled,
     settings.prayerAlarmMinutes,
     notificationAccess.status,
     notificationAccess.channelBlocked,
+    exactAlarmAllowed,
     foregroundRevision
   ]);
 
@@ -361,9 +373,11 @@ export function usePrayerTimeApp() {
   }, []);
 
   const dismissNotificationSetup = useCallback(() => {
-    setNotificationSetupSeen(true);
-    void saveNotificationSetupSeen().catch((error) => console.warn("Unable to save reminder setup", error));
-  }, []);
+    pendingReminderRef.current = null;
+    reminderFlowRevisionRef.current += 1;
+    setNotificationSetupStep(null);
+    if (!settings.notificationsEnabled) setNotificationIssue(null);
+  }, [settings.notificationsEnabled]);
 
   const requestNotificationAccess = useCallback((): Promise<boolean> => {
     if (notificationRequestRef.current) return notificationRequestRef.current;
@@ -371,16 +385,19 @@ export function usePrayerTimeApp() {
     setNotificationIssue(null);
     const run = async () => {
       try {
-        const access = await getNotificationAccess(true);
+        const access = await getNotificationAccess(true, settings.language);
         if (!mountedRef.current) return false;
         setNotificationAccess(access);
         const granted = access.status === "granted" && !access.channelBlocked;
         setNotificationIssue(notificationAccessMessage(access));
-        if (granted) dismissNotificationSetup();
+        if (!granted && pendingReminderRef.current) setNotificationSetupStep("notifications");
         return granted;
       } catch (error) {
         console.warn("Unable to request notification permission", error);
-        if (mountedRef.current) setNotificationIssue("Your phone could not open notification access. Open phone notification settings, then try again.");
+        if (mountedRef.current) {
+          setNotificationIssue("Your phone could not open notification access. Please try again or open phone settings.");
+          if (pendingReminderRef.current) setNotificationSetupStep("notifications");
+        }
         return false;
       } finally {
         notificationRequestRef.current = null;
@@ -389,32 +406,55 @@ export function usePrayerTimeApp() {
     };
     notificationRequestRef.current = run();
     return notificationRequestRef.current;
-  }, [dismissNotificationSetup]);
+  }, [settings.language]);
+
+  const enableReminders = useCallback((selection: ReminderSelection): Promise<boolean> => {
+    if (reminderEnableRef.current) return reminderEnableRef.current;
+    pendingReminderRef.current = selection;
+    const revision = ++reminderFlowRevisionRef.current;
+    const run = async () => {
+      try {
+        if (!(await requestNotificationAccess())) return false;
+        if (!mountedRef.current || revision !== reminderFlowRevisionRef.current || !pendingReminderRef.current) return false;
+        pendingReminderRef.current = null;
+        setSettings(current => enableReminderSelection(current, selection));
+        let exact: boolean | null = null;
+        try { exact = await getExactAlarmAccess(); }
+        catch (error) { console.warn("Unable to inspect on-time reminder access", error); }
+        if (mountedRef.current && revision === reminderFlowRevisionRef.current) {
+          setExactAlarmAllowed(exact);
+          setNotificationSetupStep(exact === false ? "timing" : null);
+        }
+        return true;
+      } finally {
+        reminderEnableRef.current = null;
+      }
+    };
+    reminderEnableRef.current = run();
+    return reminderEnableRef.current;
+  }, [requestNotificationAccess]);
 
   const setNotificationsEnabled = useCallback(async (enabled: boolean) => {
-    if (enabled && !(await requestNotificationAccess())) return false;
-    setSettings((current) => ({
-      ...current,
-      notificationsEnabled: enabled,
-      prayerAlarmMinutes: enabled && !PRAYER_NAMES.some((name) => current.prayerAlarmMinutes[name] !== null)
-        ? Object.fromEntries(PRAYER_NAMES.map((name) => [name, current.alarmLeadMinutes])) as AppSettings["prayerAlarmMinutes"]
-        : current.prayerAlarmMinutes
-    }));
-    if (!enabled) dismissNotificationSetup();
+    if (enabled) return enableReminders("all");
+    dismissNotificationSetup();
+    setSettings(current => ({ ...current, notificationsEnabled: false }));
     return true;
-  }, [dismissNotificationSetup, requestNotificationAccess]);
+  }, [dismissNotificationSetup, enableReminders]);
 
-  const testNotification = useCallback(async () => {
-    setTestNotificationMessage(null);
-    if (!(await requestNotificationAccess())) return;
-    try {
-      await scheduleTestNotification();
-      if (mountedRef.current) setTestNotificationMessage("Test scheduled for 5 seconds from now. Check the phone’s banner, sound, and notification tray.");
-    } catch (error) {
-      console.warn("Unable to schedule test reminder", error);
-      if (mountedRef.current) setTestNotificationMessage("The test reminder could not be scheduled. Check notification settings and try again.");
+  const retryReminderSetup = useCallback(() => enableReminders(pendingReminderRef.current ?? "all"), [enableReminders]);
+
+  const openReminderTimingSettings = useCallback(async () => {
+    setNotificationIssue(null);
+    try { await openExactAlarmSettings(); }
+    catch (error) {
+      if (mountedRef.current) setNotificationIssue(error instanceof Error ? error.message : "Open your phone settings to allow on-time reminders.");
     }
-  }, [requestNotificationAccess]);
+  }, []);
+
+  const openReminderNotificationSettings = useCallback(async () => {
+    try { await openNotificationSettings(notificationAccess.channelBlocked); }
+    catch { if (mountedRef.current) setNotificationIssue("Open your phone’s app notification settings to enable reminders."); }
+  }, [notificationAccess.channelBlocked]);
 
   const setAlarmLeadMinutes = useCallback(async (minutes: number): Promise<void> => {
     const normalizedMinutes = Math.max(1, Math.min(60, Math.round(minutes)));
@@ -452,33 +492,12 @@ export function usePrayerTimeApp() {
         return true;
       }
 
-      if (!(await requestNotificationAccess())) return false;
-
-      if (!settings.notificationsEnabled) {
-        setSettings((current) => ({
-          ...current,
-          notificationsEnabled: true,
-          prayerAlarmMinutes: Object.fromEntries(
-            PRAYER_NAMES.map((name) => [
-              name,
-              name === prayer ? current.alarmLeadMinutes : null
-            ])
-          ) as AppSettings["prayerAlarmMinutes"]
-        }));
-      } else {
-        setSettings((current) => ({
-          ...current,
-          prayerAlarmMinutes: {
-            ...current.prayerAlarmMinutes,
-            [prayer]: current.alarmLeadMinutes
-          }
-        }));
-      }
+      if (!(await enableReminders(prayer))) return false;
 
       await gentleHaptic();
       return true;
     },
-    [requestNotificationAccess, settings.notificationsEnabled, settings.prayerAlarmMinutes]
+    [enableReminders, settings.notificationsEnabled, settings.prayerAlarmMinutes]
   );
 
   const useManualLocation = useCallback(
@@ -525,6 +544,8 @@ export function usePrayerTimeApp() {
     await gentleHaptic();
   }, [applyLocation]);
 
+  const searchLocationsForLanguage = useCallback((query: string) => searchLocations(query, settings.language), [settings.language]);
+
   return {
     booting,
     settings,
@@ -537,12 +558,12 @@ export function usePrayerTimeApp() {
     notificationIssue,
     notificationAccess,
     notificationBusy,
-    notificationSetupVisible: !booting && Boolean(location) && !locating && !notificationSetupSeen && !["unknown", "unsupported"].includes(notificationAccess.status),
+    notificationSetupStep,
     dismissNotificationSetup,
     setNotificationsEnabled,
-    testNotification,
-    testNotificationMessage,
-    openNotificationSettings: () => Linking.openSettings().catch(() => setNotificationIssue("Open your phone’s app notification settings to enable reminders.")),
+    retryReminderSetup,
+    openReminderTimingSettings,
+    openNotificationSettings: openReminderNotificationSettings,
     calendar: calculation.calendar,
     calculationError: calculation.error,
     today,
@@ -554,7 +575,7 @@ export function usePrayerTimeApp() {
     updateSetting,
     setAlarmLeadMinutes,
     togglePrayerAlarm,
-    searchLocations,
+    searchLocations: searchLocationsForLanguage,
     useManualLocation,
     useRecentLocation,
     useDhakaTemporarily,

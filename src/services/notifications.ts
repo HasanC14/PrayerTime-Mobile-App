@@ -1,11 +1,13 @@
 import { Platform } from "react-native";
 import * as Notifications from "./localNotifications";
 
-import type { NotificationAccess, PrayerAlarmSettings, PrayerDay } from "../types";
+import type { AppLanguage, NotificationAccess, PrayerAlarmSettings, PrayerDay } from "../types";
+import { translateMessage } from "../i18n/translate";
 import { resolveNotificationAccess } from "./notificationAccess";
 import { getPrayerAlarmOccurrences } from "./prayerPeriods";
 import { getPrayerNotificationIds, savePrayerNotificationIds } from "./storage";
 import { syncPrayerReminders } from "./reminderSync";
+import { reminderTimingKey } from "./reminderSetup";
 
 const CHANNEL_ID = "prayer-times";
 
@@ -18,11 +20,11 @@ Notifications.setNotificationHandler({
   })
 });
 
-export async function preparePrayerNotificationChannel(): Promise<void> {
+export async function preparePrayerNotificationChannel(language: AppLanguage = "en"): Promise<void> {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: "Prayer times",
-    description: "Custom alarms before each prayer period ends.",
+    name: translateMessage("Prayer times", language),
+    description: translateMessage("Custom alarms before each prayer period ends.", language),
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 200, 160, 200],
@@ -30,35 +32,19 @@ export async function preparePrayerNotificationChannel(): Promise<void> {
   });
 }
 
-export function getNotificationAccess(request = false): Promise<NotificationAccess> {
+export function getNotificationAccess(request = false, language: AppLanguage = "en"): Promise<NotificationAccess> {
   return resolveNotificationAccess({
     platform: Platform.OS,
-    prepareChannel: preparePrayerNotificationChannel,
+    prepareChannel: () => preparePrayerNotificationChannel(language),
     getPermission: Notifications.getPermissionsAsync,
     requestPermission: () => Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true, allowBadge: false }, android: {} }),
     getChannel: () => Notifications.getNotificationChannelAsync(CHANNEL_ID)
   }, request);
 }
 
-export async function ensureNotificationPermission(requestIfNeeded: boolean): Promise<boolean> {
-  const access = await getNotificationAccess(requestIfNeeded);
+export async function ensureNotificationPermission(requestIfNeeded: boolean, language: AppLanguage = "en"): Promise<boolean> {
+  const access = await getNotificationAccess(requestIfNeeded, language);
   return access.status === "granted" && !access.channelBlocked;
-}
-
-export async function scheduleTestNotification(): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    identifier: "prayer-reminder-test",
-    content: { title: "PrayerTime test reminder", body: "Prayer notifications are working on this phone.", sound: "default", data: { kind: "prayer-test" } },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, repeats: false, ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}) }
-  });
-}
-
-export function listenForTestNotification(onReceived: () => void): () => void {
-  if (Platform.OS === "web") return () => undefined;
-  const subscription = Notifications.addNotificationReceivedListener((notification) => {
-    if (notification.request.content.data?.kind === "prayer-test") onReceived();
-  });
-  return () => subscription.remove();
 }
 
 export async function cancelPrayerNotifications(): Promise<void> {
@@ -77,9 +63,11 @@ const notificationAdapter = {
 export async function schedulePrayerNotifications(
   calendar: PrayerDay[],
   alarms: PrayerAlarmSettings,
-  requestPermission = false
+  requestPermission = false,
+  exactAlarmAllowed: boolean | null = null,
+  language: AppLanguage = "en"
 ): Promise<{ scheduled: boolean; count: number; reason?: "permission" }> {
-  const granted = await ensureNotificationPermission(requestPermission);
+  const granted = await ensureNotificationPermission(requestPermission, language);
   if (!granted) return { scheduled: false, count: 0, reason: "permission" };
 
   const now = new Date();
@@ -94,10 +82,10 @@ export async function schedulePrayerNotifications(
       } as Notifications.DateTriggerInput;
 
       return {
-        identifier: `prayer-end:${occurrence.prayer}:${occurrence.trigger.getTime()}:${occurrence.minutesBeforeEnd}`,
+        identifier: `prayer-end:${occurrence.prayer}:${occurrence.trigger.getTime()}:${occurrence.minutesBeforeEnd}:${reminderTimingKey(exactAlarmAllowed)}:${language}`,
         content: {
-          title: `${occurrence.prayer} time ending soon`,
-          body: `${occurrence.prayer} ends in ${occurrence.minutesBeforeEnd} minutes.`,
+          title: translateMessage("{prayer} time ending soon", language, { prayer: occurrence.prayer }),
+          body: translateMessage("{prayer} ends in {minutes} minutes.", language, { prayer: occurrence.prayer, minutes: occurrence.minutesBeforeEnd }),
           sound: "default",
           data: {
             kind: "prayer-end-alarm",

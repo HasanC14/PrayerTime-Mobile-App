@@ -19,7 +19,7 @@ export function toLocationIssue(error: unknown): LocationIssue {
     return { code: "permission-blocked", message: "Location access is not allowed. Open phone settings and allow location while using the app.", canOpenSettings: true };
   }
   if (/UNAVAILABLE|UNKNOWN|TIMEOUT|CANCELLED/.test(nativeCode)) {
-    return { code: "unavailable", message: "Your phone has not returned a location fix. Turn on Location, move near a window or outdoors, and try again.", canOpenSettings: true };
+    return { code: "unavailable", message: "Your phone has not found your current location. Turn on Location, move near a window or outdoors, and try again.", canOpenSettings: true };
   }
   return { code: "unavailable", message: "Your phone could not provide a location. Check Location permissions and Location Accuracy in phone settings, then try again.", canOpenSettings: true };
 }

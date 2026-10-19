@@ -5,7 +5,6 @@ export { getPermissionsAsync, requestPermissionsAsync } from "expo-notifications
 export { setNotificationHandler } from "expo-notifications/build/NotificationsHandler";
 export { setNotificationChannelAsync } from "expo-notifications/build/setNotificationChannelAsync";
 export { getNotificationChannelAsync } from "expo-notifications/build/getNotificationChannelAsync";
-export { addNotificationReceivedListener } from "expo-notifications/build/NotificationsEmitter";
 export { getAllScheduledNotificationsAsync } from "expo-notifications/build/getAllScheduledNotificationsAsync";
 export { cancelScheduledNotificationAsync } from "expo-notifications/build/cancelScheduledNotificationAsync";
 export { scheduleNotificationAsync } from "expo-notifications/build/scheduleNotificationAsync";

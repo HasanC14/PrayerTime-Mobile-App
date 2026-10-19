@@ -1,3 +1,5 @@
+import { validateTasbeehState, type TasbeehState } from "./tasbeeh";
+import { normalizeTextScale } from "../typography";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import tzLookup from "tz-lookup";
 
@@ -100,6 +102,8 @@ export function validateSettings(value: unknown): AppSettings {
   ) as AppSettings["prayerAlarmMinutes"];
 
   return {
+    textScale: normalizeTextScale(candidate.textScale),
+    language: candidate.language === "bn" || candidate.language === "ar" ? candidate.language : "en",
     method: validMethodIds.has(candidate.method as string | number)
       ? (candidate.method as AppSettings["method"])
       : DEFAULT_SETTINGS.method,
@@ -254,4 +258,11 @@ export function savePrayerNotificationIds(ids: string[]): Promise<void> {
 
 export function saveNotificationSetupSeen(): Promise<void> {
   return enqueueWrite(() => AsyncStorage.setItem(KEYS.notificationSetupSeen, "true"));
+}
+
+export async function loadTasbeehState() {
+  return validateTasbeehState(parseJson(await AsyncStorage.getItem(`${V2_PREFIX}tasbeeh`)));
+}
+export function saveTasbeehState(state: TasbeehState): Promise<void> {
+  return enqueueWrite(() => AsyncStorage.setItem(`${V2_PREFIX}tasbeeh`, JSON.stringify(state)));
 }

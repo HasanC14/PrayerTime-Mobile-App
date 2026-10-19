@@ -32,7 +32,7 @@ export function waitForLocationFix<T extends PositionFix>(
     const abort = () => finish(new DeviceLocationError("unavailable", "Location request cancelled."));
     if (signal?.aborted) { abort(); return; }
     signal?.addEventListener("abort", abort, { once: true });
-    timer = setTimeout(() => finish(new DeviceLocationError("timeout", "No current location fix arrived. Move near a window or outdoors and try again.", true)), timeoutMs);
+    timer = setTimeout(() => finish(new DeviceLocationError("timeout", "Your phone could not find your current location. Move near a window or outdoors and try again.", true)), timeoutMs);
     const onFix = (fix: T) => {
       const { latitude, longitude } = fix.coords;
       if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return;

@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppButton, SurfaceCard } from "../components/ui";
+import { useI18n } from "../i18n/context";
+import { AppButton, ScreenHeader, SurfaceCard } from "../components/ui";
 import { useQiblaCompass } from "../hooks/useQiblaCompass";
-import { getCompassDirection, getQiblaBearing } from "../services/qibla";
+import { getCompassDirection, getQiblaBearing, getCompassPresentation } from "../services/qibla";
 import { createThemedStyles, radii, shadows, spacing } from "../theme";
 import type { AppLocation, LocationIssue } from "../types";
 
@@ -27,16 +29,17 @@ export function QiblaScreen({
 }) {
   const { colors, styles } = useStyles();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const { width: viewportWidth } = useWindowDimensions();
   const focused = useIsFocused();
   const refreshAttemptedForCapture = useRef<number | null>(null);
   const qiblaBearing = getQiblaBearing(location);
   const liveCompassEnabled = focused && location.source === "device" && qiblaBearing !== null;
   const compass = useQiblaCompass(liveCompassEnabled, qiblaBearing);
-  const needleRotation = compass.relativeAngle ?? qiblaBearing ?? 0;
+  const { needleRotation, markers } = getCompassPresentation(qiblaBearing, compass.heading);
   const dialSize = Math.min(
     264,
-    Math.max(0, viewportWidth - spacing.lg * 2 - spacing.xl * 2 - 4),
+    Math.max(0, viewportWidth - spacing.xl * 4 - 4),
   );
   const tickSize = Math.max(0, dialSize - 40);
 
@@ -65,26 +68,16 @@ export function QiblaScreen({
   })();
 
   return (
+    <View style={styles.screen}>
+    <ScreenHeader title="Qibla" subtitle={`Direction from ${location.name}`} />
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: Math.max(insets.top, spacing.xl), paddingBottom: spacing.xxl }
+        { paddingTop: spacing.xs, paddingBottom: Math.max(insets.bottom, spacing.xxl) }
       ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.page}>
-        <View style={styles.header}>
-          <View>
-            <Text accessibilityRole="header" style={styles.title}>
-              Qibla
-            </Text>
-            <Text style={styles.subtitle}>Direction from {location.name}</Text>
-          </View>
-          <View style={styles.headerIcon}>
-            <Ionicons name="compass-outline" size={24} color={colors.accent} />
-          </View>
-        </View>
-
         <SurfaceCard style={styles.compassCard}>
           <Text style={styles.bearingLabel}>Qibla bearing</Text>
           <Text style={styles.bearingValue}>
@@ -92,7 +85,7 @@ export function QiblaScreen({
           </Text>
 
           <View
-            accessibilityLabel={turnInstruction}
+            accessibilityLabel={t(turnInstruction)}
             style={[
               styles.dial,
               {
@@ -102,10 +95,11 @@ export function QiblaScreen({
               },
             ]}
           >
-            <Text style={[styles.cardinal, styles.north]}>N</Text>
-            <Text style={[styles.cardinal, styles.east]}>E</Text>
-            <Text style={[styles.cardinal, styles.south]}>S</Text>
-            <Text style={[styles.cardinal, styles.west]}>W</Text>
+            {markers.map(marker => <View key={marker.direction} testID={`compass-${marker.direction}`}
+              style={[styles.cardinalPosition, { left: dialSize / 2 + marker.x * (dialSize / 2 - 24) - 34,
+                top: dialSize / 2 + marker.y * (dialSize / 2 - 24) - 15 }]}>
+              <Text style={[styles.cardinal, marker.direction === "N" && { color: colors.accent }]}>{marker.direction}</Text>
+            </View>)}
             <View
               style={[
                 styles.tickRing,
@@ -127,6 +121,7 @@ export function QiblaScreen({
             </View>
           </View>
 
+          <Text style={styles.phoneHeading}>{compass.heading === null ? "North-up view" : t("Phone facing {direction} · {degrees}°", { direction: getCompassDirection(compass.heading), degrees: Math.round(compass.heading) })}</Text>
           <View style={[styles.directionPill, compass.aligned && styles.directionPillAligned]}>
             <Ionicons
               name={compass.aligned ? "checkmark-circle" : "phone-portrait-outline"}
@@ -204,11 +199,13 @@ export function QiblaScreen({
         ) : null}
       </View>
     </ScrollView>
+    </View>
   );
 }
 
 const useStyles = createThemedStyles((colors) => StyleSheet.create({
-  content: { flexGrow: 1, paddingHorizontal: spacing.lg },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1, paddingHorizontal: spacing.xl },
   page: { alignSelf: "center", maxWidth: 620, width: "100%" },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xxl },
   title: { color: colors.ink, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
@@ -217,7 +214,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   compassCard: { alignItems: "center", padding: spacing.xl },
   bearingLabel: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 12, fontWeight: "600" },
   bearingValue: { color: colors.ink, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 24, fontVariant: ["tabular-nums"], fontWeight: "800", marginTop: spacing.xs },
-  dial: {
+  dial: { direction: "ltr",
     alignItems: "center",
     backgroundColor: colors.compassSurface,
     borderColor: colors.compassBorder,
@@ -227,7 +224,9 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     position: "relative",
   },
   tickRing: { borderColor: colors.compassTicks, borderStyle: "dashed", borderWidth: 1.5, position: "absolute" },
-  cardinal: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 13, fontWeight: "700", position: "absolute" },
+  cardinal: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  cardinalPosition: { position: "absolute", width: 68, minHeight: 30, alignItems: "center", justifyContent: "center" },
+  phoneHeading: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, marginBottom: 12, textAlign: "center" },
   north: { top: 12 },
   east: { right: 15, top: "50%", transform: [{ translateY: -8 }] },
   south: { bottom: 12 },
@@ -239,7 +238,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   dialCenterDot: { backgroundColor: colors.ink, borderRadius: 6, height: 12, width: 12 },
   directionPill: { alignItems: "center", backgroundColor: colors.surfaceMuted, borderRadius: radii.pill, flexDirection: "row", gap: spacing.sm, minHeight: 42, paddingHorizontal: spacing.lg },
   directionPillAligned: { backgroundColor: colors.successSurface },
-  directionText: { color: colors.accent, fontFamily: "BricolageGrotesque_700Bold", fontSize: 14, fontWeight: "700" },
+  directionText: { flexShrink: 1, textAlign: "center", color: colors.accent, fontFamily: "BricolageGrotesque_700Bold", fontSize: 14, fontWeight: "700" },
   directionTextAligned: { color: colors.success },
   manualNotice: { alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.lg, padding: spacing.lg },
   noticeCopy: { flex: 1, minWidth: 220 },

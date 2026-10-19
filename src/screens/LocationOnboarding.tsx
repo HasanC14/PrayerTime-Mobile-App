@@ -1,10 +1,13 @@
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { LocationIssue } from "../types";
 import { createThemedStyles, radii, shadows, spacing } from "../theme";
 import { AppButton } from "../components/ui";
+import { LanguageSelector } from "../components/LanguageSelector";
+import { BrandMark } from "../components/BrandMark";
 
 export function LocationOnboarding({
   locating,
@@ -35,9 +38,10 @@ export function LocationOnboarding({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.content}>
+        <LanguageSelector />
         <View style={styles.brandRow}>
           <View style={styles.logoBadge}>
-            <Image source={require("../../assets/logo512.png")} resizeMode="contain" style={styles.logo} />
+            <BrandMark height={42} />
           </View>
           <Text style={styles.brand}>PrayerTime</Text>
         </View>
@@ -47,7 +51,7 @@ export function LocationOnboarding({
             Prayer times,{"\n"}right where you are.
           </Text>
           <Text style={styles.subtitle}>
-            Use your phone’s location for accurate daily times, local timezone handling, and prayer alarms.
+            Your daily prayers, Qibla direction, and gentle reminders. Start with your location.
           </Text>
         </View>
 
@@ -58,7 +62,7 @@ export function LocationOnboarding({
           <View style={styles.privacyCopy}>
             <Text style={styles.privacyTitle}>Private by design</Text>
             <Text style={styles.privacyText}>
-              With your permission, your location updates while the app is open. Coordinates are sent to LocationIQ to find the city name. Prayer times are calculated on your phone, including offline.
+              Prayer times are calculated on your phone and work offline. LocationIQ helps find city names. You can also choose a city yourself.
             </Text>
           </View>
         </View>
@@ -85,7 +89,7 @@ export function LocationOnboarding({
             <AppButton label="Open phone settings" icon="settings-outline" variant="secondary" onPress={onOpenSettings} />
           ) : null}
           <AppButton label="Choose location manually" icon="map-outline" variant="secondary" onPress={onChooseManually} />
-          <AppButton label="Choose Dhaka manually" variant="quiet" onPress={onUseDhaka} />
+          <AppButton label="Use Dhaka for now" variant="quiet" onPress={onUseDhaka} />
         </View>
       </View>
     </ScrollView>
@@ -106,7 +110,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderRadius: radii.lg,
     height: 58,
     justifyContent: "center",
-    ...shadows.hero,
+    ...shadows.card,
     width: 58
   },
   logo: { height: 42, width: 42 },
@@ -130,7 +134,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderRadius: radii.md,
     height: 42,
     justifyContent: "center",
-    marginRight: spacing.md,
+    marginEnd: spacing.md,
     width: 42
   },
   privacyCopy: { flex: 1 },

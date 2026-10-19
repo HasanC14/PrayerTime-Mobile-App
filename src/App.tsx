@@ -11,6 +11,20 @@ import { BricolageGrotesque_600SemiBold } from "@expo-google-fonts/bricolage-gro
 import { BricolageGrotesque_700Bold } from "@expo-google-fonts/bricolage-grotesque/700Bold";
 import { BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque/800ExtraBold";
 
+import { NotoSansBengali_400Regular } from "@expo-google-fonts/noto-sans-bengali/400Regular";
+import { NotoSansBengali_500Medium } from "@expo-google-fonts/noto-sans-bengali/500Medium";
+import { NotoSansBengali_600SemiBold } from "@expo-google-fonts/noto-sans-bengali/600SemiBold";
+import { NotoSansBengali_700Bold } from "@expo-google-fonts/noto-sans-bengali/700Bold";
+import { NotoSansBengali_800ExtraBold } from "@expo-google-fonts/noto-sans-bengali/800ExtraBold";
+import { NotoSansArabic_400Regular } from "@expo-google-fonts/noto-sans-arabic/400Regular";
+import { NotoSansArabic_500Medium } from "@expo-google-fonts/noto-sans-arabic/500Medium";
+import { NotoSansArabic_600SemiBold } from "@expo-google-fonts/noto-sans-arabic/600SemiBold";
+import { NotoSansArabic_700Bold } from "@expo-google-fonts/noto-sans-arabic/700Bold";
+import { NotoSansArabic_800ExtraBold } from "@expo-google-fonts/noto-sans-arabic/800ExtraBold";
+
+import { TextScaleProvider } from "./typography";
+import type { AppLanguage } from "./types";
+import { I18nProvider, useI18n } from "./i18n/context";
 import { AppBackground } from "./components/ui";
 import { AnimatedSplash, SPLASH_BACKGROUND } from "./components/AnimatedSplash";
 import { usePrayerTimeApp } from "./hooks/usePrayerTimeApp";
@@ -34,6 +48,7 @@ function PrayerTimeContent({
   setManualSetupOpen: (open: boolean) => void;
 }) {
   const { colors, isDark } = useAppTheme();
+  const { isRTL } = useI18n();
   const navigationTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
@@ -57,7 +72,7 @@ function PrayerTimeContent({
           locating={app.locating}
           locationIssue={app.locationIssue}
           locationProgress={app.locationProgress}
-          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, issue: app.notificationIssue, testMessage: app.testNotificationMessage, onEnable: app.setNotificationsEnabled, onTest: app.testNotification, onOpenSettings: app.openNotificationSettings }}
+          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
           onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
           onSearchLocations={app.searchLocations}
           onUseManualLocation={app.useManualLocation}
@@ -91,13 +106,9 @@ function PrayerTimeContent({
   return (
     <AppBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme} direction={isRTL ? "rtl" : "ltr"}>
         <AppTabs app={app} />
       </NavigationContainer>
-      <NotificationSetupSheet visible={app.notificationSetupVisible} onDismiss={app.dismissNotificationSetup}
-        enabled={app.settings.notificationsEnabled} access={app.notificationAccess} busy={app.notificationBusy}
-        issue={app.notificationIssue} testMessage={app.testNotificationMessage} onEnable={app.setNotificationsEnabled}
-        onTest={app.testNotification} onOpenSettings={app.openNotificationSettings} />
     </AppBackground>
   );
 }
@@ -108,6 +119,8 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
   const [splashVisible, setSplashVisible] = useState(true);
   const finishSplash = useCallback(() => setSplashVisible(false), []);
   const ready = !app.booting && fontsReady;
+  const { updateSetting } = app;
+  const changeLanguage = useCallback((language: AppLanguage) => updateSetting("language", language), [updateSetting]);
 
   useEffect(() => {
     if (!manualSetupOpen || app.location) return;
@@ -119,6 +132,8 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
   }, [app.location, manualSetupOpen]);
 
   return (
+    <I18nProvider language={app.settings.language} onChangeLanguage={changeLanguage}>
+    <TextScaleProvider value={app.settings.textScale}>
     <View style={styles.root}>
       {ready ? (
         <View
@@ -133,11 +148,17 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
               manualSetupOpen={manualSetupOpen}
               setManualSetupOpen={setManualSetupOpen}
             />
+            <NotificationSetupSheet step={app.notificationSetupStep} onDismiss={app.dismissNotificationSetup}
+              access={app.notificationAccess} busy={app.notificationBusy} issue={app.notificationIssue}
+              onRetry={app.retryReminderSetup} onOpenSettings={app.openNotificationSettings}
+              onOpenTimingSettings={app.openReminderTimingSettings} />
           </AppThemeProvider>
         </View>
       ) : null}
       {splashVisible ? <AnimatedSplash fontsReady={fontsReady} ready={ready} onFinished={finishSplash} /> : null}
     </View>
+    </TextScaleProvider>
+    </I18nProvider>
   );
 }
 
@@ -147,11 +168,21 @@ export default function App() {
     BricolageGrotesque_500Medium,
     BricolageGrotesque_600SemiBold,
     BricolageGrotesque_700Bold,
-    BricolageGrotesque_800ExtraBold
+    BricolageGrotesque_800ExtraBold,
+    NotoSansBengali_400Regular,
+    NotoSansBengali_500Medium,
+    NotoSansBengali_600SemiBold,
+    NotoSansBengali_700Bold,
+    NotoSansBengali_800ExtraBold,
+    NotoSansArabic_400Regular,
+    NotoSansArabic_500Medium,
+    NotoSansArabic_600SemiBold,
+    NotoSansArabic_700Bold,
+    NotoSansArabic_800ExtraBold
   });
 
   useEffect(() => {
-    if (fontError) console.warn("Bricolage Grotesque could not be loaded", fontError);
+    if (fontError) console.warn("App fonts could not be loaded", fontError);
   }, [fontError]);
 
   return (
