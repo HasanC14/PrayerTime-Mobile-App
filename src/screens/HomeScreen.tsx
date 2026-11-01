@@ -3,18 +3,20 @@ import { useI18n } from "../i18n/context";
 import { useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Pressable, Text } from "../i18n/native";
+import { ProhibitedTimesCard } from "../components/ProhibitedTimesCard";
+import { JournalCount, JournalSummary, PrayerCheck } from "../components/PrayerJournal";
+import type { PrayerJournalController } from "../hooks/usePrayerJournal";
 import { PrayerHeroCard } from "../components/PrayerHeroCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SurfaceCard } from "../components/ui";
-import { CoffeeSupportIcon } from "../components/CoffeeSupportIcon";
+import { IconButton, SurfaceCard } from "../components/ui";
+import { getJournalDateKey } from "../services/journalOverview";
 import {
   DEFAULT_PRAYER_ALARMS,
   PRAYER_EVENT_META,
 } from "../constants/settings";
-import { getDateKeyInTimeZone } from "../services/prayerTimes";
-import { getPrayerFocus, getPrayerPeriods } from "../services/prayerPeriods";
+import { getCurrentPrayerPeriod, getPrayerFocus, getPrayerPeriods, getPrayerPeriodsForDate } from "../services/prayerPeriods";
 import { createThemedStyles, radii, spacing } from "../theme";
 import { PRAYER_NAMES } from "../types";
 import type {
@@ -36,6 +38,7 @@ import type { PrayerGuidanceWindow } from "../utils/time";
 export function HomeScreen({
   location,
   settings,
+  journal,
   now,
   today,
   calendar,
@@ -47,14 +50,16 @@ export function HomeScreen({
   notificationIssue,
   locationProgress,
   onOpenLocation,
-  onDonate,
+  onOpenSettings,
   onTogglePrayerAlarm,
   onRefresh,
+  refreshing,
   onOpenGuidance,
   onRetry,
 }: {
   location: AppLocation;
   settings: AppSettings;
+  journal: PrayerJournalController;
   now: Date;
   today?: PrayerDay;
   calendar: PrayerDay[];
@@ -66,9 +71,10 @@ export function HomeScreen({
   notificationIssue: string | null;
   locationProgress: string | null;
   onOpenLocation: () => void;
-  onDonate: () => void;
+  onOpenSettings: () => void;
   onTogglePrayerAlarm: (prayer: PrayerName) => Promise<boolean>;
   onRefresh: () => void;
+  refreshing: boolean;
   onOpenGuidance: () => void;
   onRetry: () => void;
 }) {
@@ -79,14 +85,13 @@ export function HomeScreen({
   const textScale = useTextScale();
   const compact = width < 360 || fontScale * textScale > 1.2 || language === "bn";
   const timeZone = location.timeZone;
-  const todayKey = getDateKeyInTimeZone(now, timeZone);
-  const nextKey = prayerState.next
-    ? getDateKeyInTimeZone(prayerState.next.date, timeZone)
-    : null;
   const prayerFocus = useMemo(
     () => getPrayerFocus(now, calendar),
     [calendar, now],
   );
+  const currentPeriod = useMemo(() => getCurrentPrayerPeriod(now, calendar), [now, calendar]);
+  const journalDateKey = getJournalDateKey(now, calendar, timeZone);
+  const journalPeriods = useMemo(() => journalDateKey ? getPrayerPeriodsForDate(calendar, journalDateKey) : new Map(), [calendar, journalDateKey]);
   const remaining = prayerFocus
     ? prayerFocus.target.getTime() - now.getTime()
     : 0;
@@ -142,27 +147,13 @@ export function HomeScreen({
 
             </View>
           </Pressable>
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel="Buy me a coffee"
-            onPress={onDonate}
-            style={({ pressed }) => [
-              styles.coffeeButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <CoffeeSupportIcon
-              size={34}
-              primaryColor={colors.ink}
-              accentColor={colors.accent}
-            />
-          </Pressable>
+          <IconButton icon="settings-outline" label="Settings" variant="plain" onPress={onOpenSettings} />
         </View>
 
     <ScrollView
       refreshControl={
         <RefreshControl
-          refreshing={locating}
+          refreshing={refreshing}
           onRefresh={onRefresh}
           tintColor={colors.accent}
         />
@@ -211,8 +202,8 @@ export function HomeScreen({
           </SurfaceCard>
         ) : (
           <>
-            <PrayerHeroCard focus={prayerFocus} remaining={heroRemaining} progress={heroProgress} guidance={guidance}
-              next={prayerState.next} timeFormat={settings.timeFormat} timeZone={timeZone} />
+            <PrayerHeroCard live focus={prayerFocus} remaining={heroRemaining} progress={heroProgress} guidance={guidance}
+              next={prayerState.next} timeFormat={settings.timeFormat} timeZone={timeZone} artwork={settings.heroArtwork} onOpenGuidance={onOpenGuidance} />
 
             <View style={styles.dateStrip}>
               <View>
@@ -225,41 +216,6 @@ export function HomeScreen({
                 </Text>
               </View>
             </View>
-
-            {guidance ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onOpenGuidance}
-                style={({ pressed }) => [
-                  styles.guidance,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons
-                  name="warning-outline"
-                  size={19}
-                  color={colors.danger}
-                />
-                <View style={styles.guidanceCopy}>
-                  <Text style={styles.guidanceTitle}>
-                    Prohibited time · {formatPrayerTimeRange(
-                      guidance.start,
-                      guidance.end,
-                      settings.timeFormat,
-                      timeZone, language,
-                    )}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.guidanceText}>
-                    {guidance.message}
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={17}
-                  color={colors.danger}
-                />
-              </Pressable>
-            ) : null}
 
             <SurfaceCard style={styles.summaryCard}>
               <View style={styles.summaryIcon}>
@@ -323,33 +279,14 @@ export function HomeScreen({
 
             <SurfaceCard style={styles.scheduleCard}>
               <View style={styles.scheduleHeader}>
-                <View>
-                  <Text accessibilityRole="header" style={styles.scheduleTitle}>
-                    Prayer times
-                  </Text>
-                  <Text style={styles.scheduleMethod}>
-                    {settings.method === "auto"
-                      ? `Automatic · ${today.methodName}`
-                      : today.methodName}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Prayer-time guidance"
-                  onPress={onOpenGuidance}
-                  style={styles.infoButton}
-                >
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={20}
-                    color={colors.inkSoft}
-                  />
-                </Pressable>
+                <Text accessibilityRole="header" style={styles.scheduleTitle}>Prayer times</Text>
+                {settings.prayerTrackingEnabled && journalDateKey ? <JournalCount journal={journal} dateKey={journalDateKey} /> : null}
               </View>
+              {settings.prayerTrackingEnabled && journalDateKey ? <JournalSummary journal={journal} dateKey={journalDateKey} showCount={false} /> : null}
               {PRAYER_NAMES.map((name, index) => {
-                const period = todayPrayerPeriods.get(name);
-                const isNext =
-                  prayerState.next?.name === name && nextKey === todayKey;
+                const isCurrent = currentPeriod?.prayer === name;
+                // Before Fajr, Isha still belongs to the previous evening.
+                const period = settings.prayerTrackingEnabled ? journalPeriods.get(name) : isCurrent ? currentPeriod : todayPrayerPeriods.get(name);
                 const alarmMinutes = prayerAlarmMinutes[name];
                 const alarmActive =
                   notificationsOperational && alarmMinutes !== null;
@@ -357,35 +294,36 @@ export function HomeScreen({
                 return (
                   <View
                     key={name}
+                    testID={`prayer-row-${name.toLowerCase()}`}
+                    accessibilityState={{ selected: isCurrent }}
+                    aria-selected={isCurrent}
                     style={[
                       styles.prayerRow,
+                      compact && styles.prayerRowCompact,
                       index < PRAYER_NAMES.length - 1 && styles.prayerBorder,
-                      isNext && styles.prayerRowNext,
+                      isCurrent && styles.prayerRowCurrent,
                     ]}
                   >
-                    {isNext ? <View style={styles.nextMarker} /> : null}
-                    <View style={styles.prayerIcon}>
+                    {isCurrent ? <View style={styles.currentMarker} /> : null}
+                    {settings.prayerTrackingEnabled && journalDateKey ? <PrayerCheck journal={journal} dateKey={journalDateKey} prayer={name} start={period?.start} now={now} timeZone={timeZone} /> : <View style={styles.prayerIcon}>
                       <Ionicons
                         name={meta.icon}
                         size={20}
-                        color={isNext ? colors.accent : colors.inkSoft}
+                        color={isCurrent ? colors.accent : colors.inkSoft}
                       />
-                    </View>
+                    </View>}
                     <View style={styles.prayerCopy}>
                       <View style={styles.prayerNameRow}>
                         <Text
                           style={[
                             styles.prayerName,
-                            isNext && styles.prayerNameNext,
+                            isCurrent && styles.prayerNameCurrent,
                           ]}
                         >
                           {name}
                         </Text>
-                        {isNext ? (
-                          <Text numberOfLines={1} style={styles.nextTag}>NEXT</Text>
-                        ) : null}
                       </View>
-                      {compact ? <Text style={[styles.prayerTime, styles.compactTime, isNext && styles.prayerTimeNext]}>
+                      {compact ? <Text style={[styles.prayerTime, styles.compactTime, isCurrent && styles.prayerTimeCurrent]}>
                         {formatPrayerTimeRange(period?.start, period?.end, settings.timeFormat, timeZone, language)}
                       </Text> : null}
                     </View>
@@ -397,7 +335,7 @@ export function HomeScreen({
                         numberOfLines={1}
                         style={[
                           styles.prayerTime,
-                          isNext && styles.prayerTimeNext,
+                          isCurrent && styles.prayerTimeCurrent,
                         ]}
                       >
                         {formatPrayerTimeRange(
@@ -430,6 +368,8 @@ export function HomeScreen({
                 );
               })}
             </SurfaceCard>
+
+            <ProhibitedTimesCard day={today} timeFormat={settings.timeFormat} active={guidance} onOpenGuidance={onOpenGuidance} />
           </>
         )}
       </View>
@@ -472,12 +412,6 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-  coffeeButton: {
-    alignItems: "center",
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
   pressed: { opacity: 0.65 },
   notice: {
     alignItems: "center",
@@ -512,28 +446,6 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontFamily: "BricolageGrotesque_400Regular",
     fontSize: 12,
     marginTop: 2,
-  },
-  guidance: {
-    alignItems: "center",
-    backgroundColor: colors.dangerSurface,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-  },
-  guidanceCopy: { flex: 1 },
-  guidanceTitle: {
-    color: colors.danger,
-    fontFamily: "BricolageGrotesque_700Bold",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  guidanceText: {
-    color: colors.danger,
-    fontFamily: "BricolageGrotesque_400Regular",
-    fontSize: 10,
-    marginTop: 1,
   },
   summaryCard: {
     alignItems: "center",
@@ -571,31 +483,22 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     marginHorizontal: spacing.md,
     width: 1,
   },
-  scheduleCard: { overflow: "hidden" },
+  scheduleCard: { overflow: "hidden", marginBottom: spacing.md },
   scheduleHeader: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 54,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   scheduleTitle: {
+    flexShrink: 1,
     color: colors.ink,
     fontFamily: "BricolageGrotesque_700Bold",
     fontSize: 16,
     fontWeight: "700",
-  },
-  scheduleMethod: {
-    color: colors.inkSoft,
-    fontFamily: "BricolageGrotesque_400Regular",
-    fontSize: 11,
-    marginTop: 3,
-  },
-  infoButton: {
-    alignItems: "center",
-    height: 44,
-    justifyContent: "center",
-    width: 44,
   },
   prayerRow: {
     alignItems: "center",
@@ -608,8 +511,9 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  prayerRowNext: { backgroundColor: colors.selectedSurface },
-  nextMarker: {
+  prayerRowCompact: {paddingVertical: 8},
+  prayerRowCurrent: { backgroundColor: colors.selectedSurface },
+  currentMarker: {
     backgroundColor: colors.accent,
     borderBottomRightRadius: 2,
     borderTopRightRadius: 2,
@@ -634,21 +538,9 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  prayerNameNext: {
+  prayerNameCurrent: {
     fontFamily: "BricolageGrotesque_700Bold",
     fontWeight: "700",
-  },
-  nextTag: {
-    flexShrink: 0,
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    color: colors.onAccent,
-    fontFamily: "BricolageGrotesque_800ExtraBold",
-    fontSize: 9,
-    fontWeight: "800",
-    overflow: "hidden",
-    paddingHorizontal: 5,
-    paddingVertical: 2,
   },
   prayerTimeRange: { alignItems: "flex-end", minWidth: 112 },
   compactTime: { marginTop: 4 },
@@ -659,7 +551,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontVariant: ["tabular-nums"],
     fontWeight: "700",
   },
-  prayerTimeNext: { color: colors.accent },
+  prayerTimeCurrent: { color: colors.accent },
   alarmButton: {
     alignItems: "center",
     height: 44,

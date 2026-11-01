@@ -1,7 +1,0 @@
-[
-  "A failed restore does not overwrite the saved counter",
-  "Retry restores the previous count after a read failure",
-  "Rapid increments survive an immediate background flush",
-  "A write failure is reported and the next successful save retains the entire count",
-  "Unmount flushes the last tap before the debounce timer"
-]

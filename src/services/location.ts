@@ -2,8 +2,8 @@ import { Linking, Platform } from "react-native";
 import * as Location from "expo-location";
 import tzLookup from "tz-lookup";
 
-import { reverseGeocodeLocation } from "./locationIq";
-import { distanceInMeters } from "./locationPolicy";
+import { formatLocationIqName, reverseGeocodeLocation } from "./locationIq";
+import { createLocationNameResolver } from "./deviceLocationName";
 import type { AppLocation } from "../types";
 
 import { DeviceLocationError, toLocationIssue } from "./locationErrors";
@@ -52,21 +52,33 @@ function positionToLocation(position: Location.LocationObject, fixKind: "current
   };
 }
 
-let namedLocation: AppLocation | null = null;
-
-// Naming is optional: GPS and offline prayer calculations never wait for a network request.
-export async function resolveDeviceLocationName(location: AppLocation): Promise<AppLocation> {
-  if (namedLocation && distanceInMeters(namedLocation, location) < 1000) {
-    return { ...location, name: namedLocation.name, countryCode: namedLocation.countryCode };
-  }
+async function lookupDeviceLocationName(lat: number, lng: number) {
   try {
-    const place = await reverseGeocodeLocation(location.lat, location.lng);
-    namedLocation = { ...location, ...place };
-    return namedLocation;
-  } catch {
-    return location;
+    return await reverseGeocodeLocation(lat, lng);
+  } catch (error) {
+    if (Platform.OS === "web") throw error;
+    // The phone's geocoder is an independent fallback if LocationIQ is unavailable.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const places = await Promise.race([
+      Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(error), 10_000); })
+    ]).finally(() => { if (timer) clearTimeout(timer); });
+    const place = places[0];
+    if (!place) throw error;
+    const name = formatLocationIqName({ address: {
+      city: place.city ?? undefined,
+      city_district: place.district ?? undefined,
+      county: place.subregion ?? undefined,
+      state: place.region ?? undefined,
+      country: place.country ?? undefined
+    } });
+    if (name === "Selected location") throw error;
+    return { name, countryCode: place.isoCountryCode?.toUpperCase() };
   }
 }
+
+// Naming is optional: GPS and offline prayer calculations never wait for a network request.
+export const resolveDeviceLocationName = createLocationNameResolver(lookupDeviceLocationName);
 
 export async function watchDeviceLocation(
   onLocation: (location: AppLocation) => void,
@@ -81,7 +93,7 @@ export async function watchDeviceLocation(
 }
 
 export async function getLastKnownDeviceLocation(): Promise<AppLocation | null> {
-  await ensureForegroundLocationPermission(false);
+  // The acquisition coordinator checks access once before cache/fresh lookup.
   let timer: ReturnType<typeof setTimeout> | undefined;
   const position = await Promise.race([
     Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS, requiredAccuracy: 5000 }),
@@ -91,7 +103,6 @@ export async function getLastKnownDeviceLocation(): Promise<AppLocation | null> 
 }
 
 export async function getCurrentDeviceLocation(explicitRequest = false, signal?: AbortSignal): Promise<AppLocation> {
-  await ensureForegroundLocationPermission(false);
   try {
     const position = await waitForLocationFix<Location.LocationObject>((onFix, onError) => Location.watchPositionAsync({
       accuracy: explicitRequest ? Location.Accuracy.High : Location.Accuracy.Balanced,

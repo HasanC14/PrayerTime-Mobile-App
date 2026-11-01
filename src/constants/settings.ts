@@ -30,7 +30,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timeFormat: "12h",
   ramadanMode: "auto",
   themeMode: "system",
+  heroArtwork: "moonlit",
   notificationsEnabled: false,
+  prayerTrackingEnabled: false,
   alarmLeadMinutes: DEFAULT_ALARM_LEAD_MINUTES,
   prayerAlarmMinutes: DEFAULT_PRAYER_ALARMS
 };
@@ -76,7 +78,8 @@ export const RAMADAN_OPTIONS = [
 export const THEME_OPTIONS = [
   { id: "system", name: "System", description: "Follow your phone’s appearance setting." },
   { id: "light", name: "Light", description: "Always use the light appearance." },
-  { id: "dark", name: "Dark", description: "Always use the dark appearance." }
+  { id: "dark", name: "Dark", description: "Soft charcoal with muted lavender." },
+  { id: "classic-dark", name: "Classic dark", description: "The original black and purple theme." }
 ] as const;
 
 export const PRAYER_EVENT_META = {

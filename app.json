@@ -16,8 +16,7 @@
       }
     },
     "android": {
-      "package": "com.hubxpert.prayertime",
-      "versionCode": 1,
+      "package": "com.hasanbuilds.prayertime",
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -57,10 +56,67 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-transparent.png",
-          "backgroundColor": "#B99ADB"
+          "backgroundColor": "#F6F4F8"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "./plugins/withWidgetArtwork",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.hubxpert.prayertime.widgets",
+          "groupIdentifier": "group.com.hubxpert.prayertime",
+          "widgets": [
+            {
+              "name": "PrayerHero",
+              "displayName": "Prayer card",
+              "description": "Your prayer card, with artwork, countdown and the next prayer.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemMedium"
+                ],
+                "contentMarginsDisabled": true
+              }
+            },
+            {
+              "name": "NextPrayer",
+              "displayName": "Next prayer",
+              "description": "Your next prayer, start time, and saved location.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ],
+                "contentMarginsDisabled": true
+              }
+            },
+            {
+              "name": "DaySummary",
+              "displayName": "Day summary",
+              "description": "Current prayer, Hijri date, sunrise, sunset and fasting times.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemMedium"
+                ],
+                "contentMarginsDisabled": true
+              }
+            },
+            {
+              "name": "PrayerTimes",
+              "displayName": "Prayer times",
+              "description": "All five prayer periods for your day.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemLarge"
+                ],
+                "contentMarginsDisabled": true
+              }
+            }
+          ]
+        }
+      ],
+      "expo-asset",
+      "./plugins/withAndroidReleaseOptimization"
     ],
     "extra": {
       "eas": {

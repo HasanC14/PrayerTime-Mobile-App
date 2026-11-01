@@ -1,9 +1,0 @@
-{
-  "results": [
-    "Animated splash shows PrayerTime in the app font",
-    "Hero uses mosque artwork, no status/time pills, and inline ends-in text",
-    "No Arabic dhikr lines remain on the counter or in preset selection",
-    "Refined hero renders in RTL at 320 pixels with large text"
-  ],
-  "errors": []
-}

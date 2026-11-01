@@ -55,9 +55,13 @@ export function getPrayerPeriods(calendar: PrayerDay[]): PrayerPeriod[] {
   return periods.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
+export function getCurrentPrayerPeriod(now: Date, calendar: PrayerDay[]): PrayerPeriod | null {
+  return getPrayerPeriods(calendar).find(period => period.start <= now && now < period.end) ?? null;
+}
+
 export function getPrayerFocus(now: Date, calendar: PrayerDay[]): PrayerFocus | null {
   const periods = getPrayerPeriods(calendar);
-  const active = periods.find((period) => period.start <= now && now < period.end);
+  const active = periods.find(period => period.start <= now && now < period.end);
   if (active) {
     return {
       prayer: active.prayer,
@@ -110,21 +114,16 @@ export function getPrayerAlarmOccurrences(
   now = new Date(),
   horizonDays = 7
 ): PrayerAlarmOccurrence[] {
+  const horizonEnd = now.getTime() + horizonDays * 24 * 60 * 60_000;
   const occurrences = getPrayerPeriods(calendar)
     .flatMap((period) => {
       const minutesBeforeEnd = alarms[period.prayer];
       if (minutesBeforeEnd === null) return [];
       const trigger = new Date(period.end.getTime() - minutesBeforeEnd * 60_000);
-      if (trigger <= now || trigger < period.start || trigger >= period.end) return [];
+      if (trigger <= now || trigger.getTime() > horizonEnd || trigger < period.start || trigger >= period.end) return [];
       return [{ prayer: period.prayer, dateKey: period.dateKey, trigger, periodEnd: period.end, minutesBeforeEnd }];
     })
     .sort((a, b) => a.trigger.getTime() - b.trigger.getTime());
 
-  const includedDateKeys = new Set<string>();
-  for (const occurrence of occurrences) {
-    if (includedDateKeys.has(occurrence.dateKey)) continue;
-    if (includedDateKeys.size >= horizonDays) break;
-    includedDateKeys.add(occurrence.dateKey);
-  }
-  return occurrences.filter((occurrence) => includedDateKeys.has(occurrence.dateKey));
+  return occurrences;
 }

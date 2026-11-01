@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BackHandler, StyleSheet, View } from "react-native";
+import { BackHandler, Platform, StyleSheet, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
@@ -25,12 +25,15 @@ import { NotoSansArabic_800ExtraBold } from "@expo-google-fonts/noto-sans-arabic
 import { TextScaleProvider } from "./typography";
 import type { AppLanguage } from "./types";
 import { I18nProvider, useI18n } from "./i18n/context";
-import { AppBackground } from "./components/ui";
+import { AppBackground, AppButton, ScreenHeader, SurfaceCard } from "./components/ui";
+import { Text } from "./i18n/native";
+import { StorageIssueNotice } from "./components/StorageIssueNotice";
 import { AnimatedSplash, SPLASH_BACKGROUND } from "./components/AnimatedSplash";
 import { usePrayerTimeApp } from "./hooks/usePrayerTimeApp";
 import { AppTabs } from "./navigation/AppTabs";
+import { APP_LINKING_CONFIG, type RootStackParamList } from "./navigation/routes";
 import { LocationOnboarding } from "./screens/LocationOnboarding";
-import { SettingsScreen } from "./screens/SettingsScreen";
+import { LocationSheet } from "./components/LocationSheet";
 import { NotificationSetupSheet } from "./components/NotificationSetupSheet";
 import { AppThemeProvider, useAppTheme } from "./theme";
 
@@ -61,29 +64,16 @@ function PrayerTimeContent({
     }
   };
 
-  if (!app.location && manualSetupOpen) {
-    return (
-      <AppBackground>
-        <StatusBar style={isDark ? "light" : "dark"} />
-        <SettingsScreen
-          settings={app.settings}
-          location={app.location}
-          recentLocations={app.recentLocations}
-          locating={app.locating}
-          locationIssue={app.locationIssue}
-          locationProgress={app.locationProgress}
-          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
-          onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
-          onSearchLocations={app.searchLocations}
-          onUseManualLocation={app.useManualLocation}
-          onUseRecentLocation={app.useRecentLocation}
-          onOpenPhoneSettings={() => void app.openLocationSettings()}
-          onUpdateSetting={app.updateSetting}
-          onSetAlarmLeadMinutes={app.setAlarmLeadMinutes}
-          onBack={() => setManualSetupOpen(false)}
-        />
-      </AppBackground>
-    );
+  if (app.restoreIssue) {
+    return <AppBackground>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      <ScreenHeader title="PrayerTime" />
+      <SurfaceCard style={{ margin: 20, padding: 20, gap: 16 }}>
+        <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 22, fontFamily: "BricolageGrotesque_700Bold" }}>{"Couldn't load your saved data"}</Text>
+        <Text style={{ color: colors.inkSoft, fontSize: 15, lineHeight: 22 }}>Please try again to restore your settings and location.</Text>
+        <AppButton label="Try again" loading={app.booting} onPress={app.retryRestore} />
+      </SurfaceCard>
+    </AppBackground>;
   }
 
   if (!app.location) {
@@ -96,8 +86,19 @@ function PrayerTimeContent({
           issue={app.locationIssue}
           onUseLocation={() => void app.refreshDeviceLocation(true)}
           onChooseManually={() => setManualSetupOpen(true)}
-          onUseDhaka={() => void app.useDhakaTemporarily()}
           onOpenSettings={() => void app.openLocationSettings()}
+        />
+        <LocationSheet
+          visible={manualSetupOpen}
+          onClose={() => setManualSetupOpen(false)}
+          location={app.location}
+          locating={app.locating}
+          locationIssue={app.locationIssue}
+          locationProgress={app.locationProgress}
+          onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
+          onSearchLocations={app.searchLocations}
+          onUseManualLocation={app.useManualLocation}
+          onOpenPhoneSettings={() => void app.openLocationSettings()}
         />
       </AppBackground>
     );
@@ -106,7 +107,8 @@ function PrayerTimeContent({
   return (
     <AppBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <NavigationContainer theme={navigationTheme} direction={isRTL ? "rtl" : "ltr"}>
+      <NavigationContainer<RootStackParamList> theme={navigationTheme} direction={isRTL ? "rtl" : "ltr"}
+        linking={Platform.OS === "web" ? undefined : { prefixes: ["prayertime://"], config: APP_LINKING_CONFIG }}>
         <AppTabs app={app} />
       </NavigationContainer>
     </AppBackground>
@@ -118,7 +120,7 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
   const [manualSetupOpen, setManualSetupOpen] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
   const finishSplash = useCallback(() => setSplashVisible(false), []);
-  const ready = !app.booting && fontsReady;
+  const ready = (!app.booting || app.restoreIssue) && fontsReady;
   const { updateSetting } = app;
   const changeLanguage = useCallback((language: AppLanguage) => updateSetting("language", language), [updateSetting]);
 
@@ -148,6 +150,7 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
               manualSetupOpen={manualSetupOpen}
               setManualSetupOpen={setManualSetupOpen}
             />
+            {app.storageIssue && !app.restoreIssue ? <StorageIssueNotice onRetry={app.retrySaving} /> : null}
             <NotificationSetupSheet step={app.notificationSetupStep} onDismiss={app.dismissNotificationSetup}
               access={app.notificationAccess} busy={app.notificationBusy} issue={app.notificationIssue}
               onRetry={app.retryReminderSetup} onOpenSettings={app.openNotificationSettings}

@@ -17,7 +17,6 @@ const LEGACY_PREFIX = "@PrayerTime:";
 const KEYS = {
   settings: `${V2_PREFIX}settings`,
   location: `${V2_PREFIX}location`,
-  recentLocations: `${V2_PREFIX}recentLocations`,
   notificationIds: `${V2_PREFIX}notificationIds`,
   notificationSetupSeen: `${V2_PREFIX}notificationSetupSeen`
 } as const;
@@ -103,6 +102,8 @@ export function validateSettings(value: unknown): AppSettings {
 
   return {
     textScale: normalizeTextScale(candidate.textScale),
+    heroArtwork: candidate.heroArtwork === "skyline" || candidate.heroArtwork === "moonlit" || candidate.heroArtwork === "serenity"
+      ? candidate.heroArtwork : DEFAULT_SETTINGS.heroArtwork,
     language: candidate.language === "bn" || candidate.language === "ar" ? candidate.language : "en",
     method: validMethodIds.has(candidate.method as string | number)
       ? (candidate.method as AppSettings["method"])
@@ -126,10 +127,11 @@ export function validateSettings(value: unknown): AppSettings {
           ? "always"
           : "auto",
     themeMode:
-      candidate.themeMode === "light" || candidate.themeMode === "dark" || candidate.themeMode === "system"
+      candidate.themeMode === "light" || candidate.themeMode === "dark" || candidate.themeMode === "classic-dark" || candidate.themeMode === "system"
         ? candidate.themeMode
         : "system",
     notificationsEnabled: candidate.notificationsEnabled === true,
+    prayerTrackingEnabled: candidate.prayerTrackingEnabled === true,
     alarmLeadMinutes,
     prayerAlarmMinutes
   };
@@ -174,24 +176,6 @@ export function validateLocation(value: unknown): AppLocation | null {
   };
 }
 
-function distanceInKm(a: AppLocation, b: AppLocation): number {
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const latitudeDelta = toRadians(b.lat - a.lat);
-  const longitudeDelta = toRadians(b.lng - a.lng);
-  const latitudeA = toRadians(a.lat);
-  const latitudeB = toRadians(b.lat);
-  const haversine =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(latitudeA) * Math.cos(latitudeB) * Math.sin(longitudeDelta / 2) ** 2;
-  return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
-}
-
-export function mergeRecentLocations(location: AppLocation, recent: AppLocation[]): AppLocation[] {
-  const filtered = recent.filter((item) => distanceInKm(item, location) > 1);
-  return [location, ...filtered].slice(0, 5);
-}
-
 function enqueueWrite(operation: () => Promise<void>): Promise<void> {
   const next = writeQueue.then(operation, operation);
   writeQueue = next.catch(() => undefined);
@@ -201,34 +185,23 @@ function enqueueWrite(operation: () => Promise<void>): Promise<void> {
 export async function loadPersistedState(): Promise<{
   settings: AppSettings;
   location: AppLocation | null;
-  recentLocations: AppLocation[];
   notificationSetupSeen: boolean;
 }> {
   const entries = await AsyncStorage.multiGet([
     KEYS.settings,
     KEYS.location,
-    KEYS.recentLocations,
     KEYS.notificationSetupSeen,
     `${LEGACY_PREFIX}settings`,
-    `${LEGACY_PREFIX}location`,
-    `${LEGACY_PREFIX}recentLocations`
+    `${LEGACY_PREFIX}location`
   ]);
   const values = new Map(entries);
 
   const settingsValue = parseJson(values.get(KEYS.settings) ?? values.get(`${LEGACY_PREFIX}settings`) ?? null);
   const locationValue = parseJson(values.get(KEYS.location) ?? values.get(`${LEGACY_PREFIX}location`) ?? null);
-  const recentValue = parseJson(
-    values.get(KEYS.recentLocations) ?? values.get(`${LEGACY_PREFIX}recentLocations`) ?? null
-  );
-
-  const recentLocations = Array.isArray(recentValue)
-    ? recentValue.map(validateLocation).filter((item): item is AppLocation => Boolean(item)).slice(0, 5)
-    : [];
 
   return {
     settings: validateSettings(settingsValue),
     location: validateLocation(locationValue),
-    recentLocations,
     notificationSetupSeen: values.get(KEYS.notificationSetupSeen) === "true" || validateSettings(settingsValue).notificationsEnabled
   };
 }
@@ -243,8 +216,16 @@ export function saveLocation(location: AppLocation | null): Promise<void> {
   );
 }
 
-export function saveRecentLocations(locations: AppLocation[]): Promise<void> {
-  return enqueueWrite(() => AsyncStorage.setItem(KEYS.recentLocations, JSON.stringify(locations.slice(0, 5))));
+// Retired history keys are the only data removed. Cleanup is optional and
+// cannot prevent the current location/settings from restoring or saving.
+export async function clearRecentLocationHistory(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      `${V2_PREFIX}recentLocations`, `${LEGACY_PREFIX}recentLocations`
+    ]);
+  } catch (error) {
+    console.warn("Unable to remove old location history", error);
+  }
 }
 
 export async function getPrayerNotificationIds(): Promise<string[]> {

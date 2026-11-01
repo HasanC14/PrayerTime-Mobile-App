@@ -44,19 +44,19 @@ export function GuidanceSheet({
       sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
     >
         <View accessibilityViewIsModal style={{ flexShrink: 1 }}>
-          <SheetHeader title="Prohibited prayer times" subtitle="Reference time ranges" onClose={onClose} />
+          <SheetHeader title="Prohibited prayer times" subtitle="A simple guide" onClose={onClose} />
 
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.notice}>
-              <Ionicons name="information-circle-outline" size={22} color={colors.warningText} />
+              <Ionicons name="information-circle-outline" size={22} color={colors.inkSoft} />
               <Text style={styles.noticeText}>
-                These are reference times, not definitive legal rulings. Exact intervals and practices can differ by school and local scholarly guidance.
+                These times are a guide. Follow your local mosque if its guidance is different.
               </Text>
             </View>
             {items.map((item) => (
               <View key={item.title} style={styles.item}>
                 <View style={styles.itemIcon}>
-                  <Ionicons name={item.icon} size={22} color={colors.danger} />
+                  <Ionicons name={item.icon} size={22} color={colors.inkSoft} />
                 </View>
                 <View style={styles.itemCopy}>
                   <View style={styles.itemHeader}>
@@ -101,15 +101,15 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   notice: {
     alignItems: "flex-start",
-    backgroundColor: colors.warningSurface,
-    borderColor: colors.warningBorder,
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.borderStrong,
     borderRadius: radii.lg,
     borderWidth: 1,
     flexDirection: "row",
     gap: spacing.md,
     padding: spacing.lg
   },
-  noticeText: { color: colors.warningText, flex: 1, fontFamily: "BricolageGrotesque_400Regular", fontSize: 13, lineHeight: 19 },
+  noticeText: { color: colors.inkSoft, flex: 1, fontFamily: "BricolageGrotesque_400Regular", fontSize: 13, lineHeight: 19 },
   item: {
     alignItems: "flex-start",
     borderColor: colors.border,
@@ -120,7 +120,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   },
   itemIcon: {
     alignItems: "center",
-    backgroundColor: colors.dangerSurface,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radii.md,
     height: 42,
     justifyContent: "center",
@@ -130,6 +130,6 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   itemCopy: { flex: 1 },
   itemHeader: { alignItems: "flex-start" },
   itemTitle: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 16, fontWeight: "700" },
-  itemTime: { color: colors.danger, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 15, fontVariant: ["tabular-nums"], fontWeight: "800", marginTop: 3 },
+  itemTime: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_800ExtraBold", fontSize: 15, fontVariant: ["tabular-nums"], fontWeight: "800", marginTop: 3 },
   itemNote: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 13, lineHeight: 19, marginTop: spacing.sm }
 }));

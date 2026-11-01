@@ -41,12 +41,14 @@ test("granting precise timing replaces existing inexact reminders without duplic
   assert.deepEqual(h.scheduled, [newId]);
 });
 
-test("a city change replaces all 35 alarms without exceeding iOS's pending limit", async () => {
-  const h = harness(Array.from({ length: 35 }, (_, i) => `old-${i}`));
-  await syncPrayerReminders(Array.from({ length: 35 }, (_, i) => ({ identifier: `new-${i}` })), h.adapter);
-  assert.equal(h.pending.size, 35);
-  assert.equal(h.peak(), 35);
-  assert.ok([...h.pending.keys()].every((id) => id.startsWith("new-")));
+test("a city change replaces each platform's full reminder window without duplicate alarms", async () => {
+  for (const limit of [60, 70]) {
+    const h = harness(Array.from({ length: limit }, (_, i) => `old-${i}`));
+    await syncPrayerReminders(Array.from({ length: limit }, (_, i) => ({ identifier: `new-${i}` })), h.adapter);
+    assert.equal(h.pending.size, limit);
+    assert.equal(h.peak(), limit);
+    assert.ok([...h.pending.keys()].every((id) => id.startsWith("new-")));
+  }
 });
 
 test("disabling finds orphaned alarms in the OS while preserving unrelated notifications", async () => {
@@ -78,4 +80,24 @@ test("cancellation failures remain tracked and are reported for retry", async ()
   await assert.rejects(syncPrayerReminders([{ identifier: "new-city" }], h.adapter), /could not be cancelled/);
   assert.deepEqual(h.saved(), ["old-city"]);
   assert.deepEqual(h.scheduled, []);
+});
+
+test("unreadable saved IDs do not prevent disabling metadata-owned prayer reminders", async () => {
+  const h = harness(["prayer-reminder"]);
+  h.adapter.savedIds = async () => { throw new Error("Storage unavailable"); };
+  h.pending.set("other", { identifier: "other", content: { data: { kind: "other-feature" } } });
+  await syncPrayerReminders([], h.adapter);
+  assert.deepEqual([...h.pending.keys()], ["other"]);
+});
+
+test("failed persistence after scheduling is recovered from OS metadata on the next sync", async () => {
+  const h = harness();
+  const save = h.adapter.saveIds;
+  h.adapter.saveIds = async () => { throw new Error("Storage full"); };
+  await assert.rejects(syncPrayerReminders([{ identifier: "fajr" }], h.adapter), /Storage full/);
+  assert.equal(h.pending.size, 1);
+  h.adapter.saveIds = save;
+  await syncPrayerReminders([{ identifier: "fajr" }], h.adapter);
+  assert.deepEqual(h.scheduled, ["fajr"]);
+  assert.deepEqual(h.saved(), ["fajr"]);
 });

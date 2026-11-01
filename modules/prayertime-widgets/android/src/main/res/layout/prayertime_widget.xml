@@ -1,0 +1,18 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/prayertime_widget_background" android:clipToOutline="true"><ImageView android:id="@+id/widget_artwork" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:importantForAccessibility="no" /><LinearLayout 
+   android:layout_width="match_parent" android:layout_height="match_parent"
+  android:orientation="vertical" android:gravity="center_vertical" android:padding="16dp"
+  >
+  <TextView android:id="@+id/widget_label" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:text="PrayerTime" android:textSize="12sp" android:textStyle="bold" android:textColor="#6F4B94" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/widget_prayer" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginTop="5dp" android:text="@string/prayertime_widget_name" android:textSize="26sp"
+    android:textStyle="bold" android:textColor="#24143A" android:maxLines="2" android:ellipsize="end" />
+  <TextView android:id="@+id/widget_time" android:layout_width="match_parent" android:layout_height="40dp"
+    android:textSize="28sp" android:textStyle="bold" android:textColor="#24143A" android:maxLines="1"
+    android:autoSizeTextType="uniform" android:autoSizeMinTextSize="13sp" android:autoSizeMaxTextSize="28sp" android:autoSizeStepGranularity="1sp" />
+  <TextView android:id="@+id/widget_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="#6F4B94" android:maxLines="1" android:ellipsize="end" />
+  <TextView android:id="@+id/widget_location" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:text="PrayerTime" android:textSize="11sp" android:textColor="#6F4B94" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout>
+</FrameLayout>

@@ -19,8 +19,8 @@ export function AppBackground({ children }: { children: ReactNode }) {
   );
 }
 
-export function ScreenHeader({ title, subtitle, leading, action }: {
-  title: string; subtitle?: string; leading?: ReactNode; action?: ReactNode;
+export function ScreenHeader({ title, subtitle, subtitleLines = 1, leading, action }: {
+  title: string; subtitle?: string; subtitleLines?: number; leading?: ReactNode; action?: ReactNode;
 }) {
   const { styles } = useStyles();
   const insets = useSafeAreaInsets();
@@ -29,7 +29,7 @@ export function ScreenHeader({ title, subtitle, leading, action }: {
       {leading}
       <View style={styles.headerCopy}>
         <Text accessibilityRole="header" style={styles.screenTitle}>{title}</Text>
-        {subtitle ? <Text numberOfLines={1} style={styles.screenSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? <Text numberOfLines={subtitleLines} style={styles.screenSubtitle}>{subtitle}</Text> : null}
       </View>
       {action}
     </View>
@@ -52,13 +52,15 @@ export function IconButton({
   label,
   onPress,
   selected = false,
-  disabled = false
+  disabled = false,
+  variant = "outlined"
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
   selected?: boolean;
   disabled?: boolean;
+  variant?: "outlined" | "plain";
 }) {
   const { colors, styles } = useStyles();
   const { isRTL } = useI18n();
@@ -73,6 +75,7 @@ export function IconButton({
       android_ripple={{ color: "rgba(90,45,124,0.12)", borderless: true }}
       style={({ pressed }) => [
         styles.iconButton,
+        variant === "plain" && styles.iconButtonPlain,
         selected && styles.iconButtonSelected,
         pressed && styles.pressed,
         disabled && styles.disabled
@@ -85,6 +88,7 @@ export function IconButton({
 
 export function AppButton({
   label,
+  accessibilityLabel,
   onPress,
   icon,
   variant = "primary",
@@ -93,6 +97,7 @@ export function AppButton({
   style
 }: {
   label: string;
+  accessibilityLabel?: string;
   onPress: () => void;
   icon?: IconName;
   variant?: "primary" | "secondary" | "quiet";
@@ -105,7 +110,7 @@ export function AppButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={loading ? `${label}, in progress` : label}
+      accessibilityLabel={loading ? `${accessibilityLabel ?? label}, in progress` : accessibilityLabel ?? label}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
@@ -204,7 +209,7 @@ export function SettingRow({
     </>
   );
 
-  if (!onPress) return <View style={styles.settingRow}>{content}</View>;
+  if (!onPress) return <View accessible={disabled || undefined} accessibilityLabel={disabled ? `${t(title)}${value ? `, ${t(value)}` : ""}` : undefined} accessibilityState={disabled ? {disabled: true} : undefined} aria-disabled={disabled || undefined} style={styles.settingRow}>{content}</View>;
   return (
     <Pressable
       accessibilityRole="button"
@@ -245,6 +250,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     width: 44
   },
   iconButtonSelected: { backgroundColor: colors.surface },
+  iconButtonPlain: { backgroundColor: "transparent", borderWidth: 0 },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.5 },
   button: {

@@ -97,11 +97,11 @@ export function BottomSheetModal({
           />
         </Animated.View>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
           pointerEvents="box-none"
           style={styles.sheetArea}
         >
-          <Animated.View accessibilityViewIsModal style={[sheetStyle, { transform: [{ translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}>
+          <Animated.View accessibilityViewIsModal style={[sheetStyle, { flexShrink: 1, minHeight: 0, transform: [{ translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}>
             {children}
           </Animated.View>
         </KeyboardAvoidingView>

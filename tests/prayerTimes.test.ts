@@ -106,6 +106,8 @@ test("time ranges share a matching AM/PM marker for a compact display", () => {
 
   assert.equal(formatPrayerTimeRange(start, end, "12h", "UTC"), "3:53 – 5:19 AM");
   assert.equal(formatPrayerTimeRange(start, end, "24h", "UTC"), "03:53 – 05:19");
+  assert.equal(formatPrayerTimeRange(new Date("2026-07-12T05:59:00Z"), new Date("2026-07-12T06:12:00Z"), "12h", "UTC"), "5:59 – 6:12 AM");
+  assert.equal(formatPrayerTimeRange(new Date("2026-07-12T11:59:00Z"), new Date("2026-07-12T12:04:00Z"), "12h", "UTC"), "11:59 AM – 12:04 PM");
 });
 
 test("Gulf Region is implemented rather than silently falling back", () => {

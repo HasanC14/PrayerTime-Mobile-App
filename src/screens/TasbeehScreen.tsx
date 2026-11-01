@@ -76,7 +76,7 @@ export function TasbeehScreen() {
   };
 
   return <View style={styles.screen}>
-    <ScreenHeader title="Tasbeeh" subtitle="A quiet moment of remembrance" action={<IconButton icon="refresh-outline" label="Reset counter" disabled={!ready || count === 0} onPress={() => confirm("reset", selected)} />} />
+    <ScreenHeader title="Tasbeeh" action={<IconButton icon="refresh-outline" label="Reset counter" disabled={!ready || count === 0} onPress={() => confirm("reset", selected)} />} />
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
       <View style={styles.page}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("Select Tasbeeh, {name}").replace("{name}", selectedName)} disabled={!ready}
@@ -90,7 +90,6 @@ export function TasbeehScreen() {
         </Pressable>
 
         <View style={styles.counterArea}>
-          <Text style={styles.dhikrPrompt}>Make each moment count</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={t("Add one to {name}").replace("{name}", selectedName)}
             accessibilityHint={t("{count} of {target}", { count, target: selected.target })} disabled={!ready || count >= MAX_TASBEEH_COUNT}
             onPress={increment} style={({ pressed }) => [styles.counter, { width: size, height: size }, pressed && { transform: [{ scale: 0.985 }] }]}>
@@ -109,13 +108,9 @@ export function TasbeehScreen() {
           </Pressable>
           <View style={styles.counterHint}>
             {complete ? <Ionicons name="checkmark-circle" size={17} color={colors.success} /> : <Ionicons name="finger-print-outline" size={17} color={colors.inkSoft} />}
-            <Text style={[styles.hint, complete && { color: colors.success }]}>{complete ? "Target reached" : "Tap the circle to count"}</Text>
+            <Text style={[styles.hint, complete && { color: colors.success }]}>Tap the circle to count</Text>
           </View>
-          <Text style={styles.helper}>{complete ? "Keep going, or reset for a new round." : "One tap, one remembrance."}</Text>
-          <View style={styles.counterActions}>
-            <IconButton icon="arrow-undo-outline" label="Undo last count" disabled={!ready || count === 0} onPress={() => { selectionFeedback(); dispatch({ type: "undo" }); }} />
-            {ready && !saveIssue ? <Text style={styles.saved}>Your progress is saved on this phone</Text> : null}
-          </View>
+
         </View>
         {counter.loadIssue ? <View style={{ gap: 12, paddingBottom: 20 }}><Text style={styles.issue}>Your saved counter could not be loaded.</Text><AppButton label="Try again" onPress={counter.retryLoad} /></View> : null}
         {saveIssue ? <Text accessibilityLiveRegion="polite" style={styles.issue}>Your counter could not be saved. Please try again.</Text> : null}
@@ -159,16 +154,12 @@ const useStyles = createThemedStyles(colors => StyleSheet.create({
   eyebrow: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, marginBottom: 3 },
   selectorTitle: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 18 },
   counterArea: { alignItems: "center", justifyContent: "center", flex: 1, paddingVertical: 28 },
-  dhikrPrompt: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 14, textAlign: "center", marginBottom: 24 },
   counter: { alignItems: "center", justifyContent: "center", borderRadius: 160 },
   countCopy: { position: "absolute", left: 28, right: 28, alignItems: "center", justifyContent: "center" },
   count: { color: colors.ink, fontFamily: "BricolageGrotesque_700Bold", fontSize: 64, textAlign: "center", fontVariant: ["tabular-nums"], width: "100%" },
   target: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 18, textAlign: "center" },
   counterHint: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 24 },
   hint: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 13, textAlign: "center" },
-  helper: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, textAlign: "center", marginTop: 5 },
-  counterActions: { alignItems: "center", gap: 10, marginTop: 22 },
-  saved: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, textAlign: "center" },
   issue: { color: colors.warningText, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, marginBottom: 16 },
   sheet: { alignSelf: "center", width: "100%", maxWidth: 620, maxHeight: "88%", paddingHorizontal: 20, backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
   choice: { flexDirection: "row", alignItems: "center", paddingEnd: 8, borderRadius: 18, backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderWidth: 1, marginBottom: 10 },

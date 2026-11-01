@@ -25,7 +25,8 @@ export type AppLanguage = "en" | "bn" | "ar";
 
 export type TimeFormat = "12h" | "24h";
 export type RamadanMode = "auto" | "always" | "off";
-export type ThemeMode = "system" | "light" | "dark";
+export type ThemeMode = "system" | "light" | "dark" | "classic-dark";
+export type HeroArtworkId = "serenity" | "skyline" | "moonlit";
 export type PrayerAlarmSettings = Record<"Fajr" | "Dhuhr" | "Asr" | "Maghrib" | "Isha", number | null>;
 
 export interface AppSettings {
@@ -38,7 +39,9 @@ export interface AppSettings {
   timeFormat: TimeFormat;
   ramadanMode: RamadanMode;
   themeMode: ThemeMode;
+  heroArtwork: HeroArtworkId;
   notificationsEnabled: boolean;
+  prayerTrackingEnabled: boolean;
   alarmLeadMinutes: number;
   prayerAlarmMinutes: PrayerAlarmSettings;
 }

@@ -1,29 +1,28 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Keyboard, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheetModal } from "./BottomSheetModal";
 import { SheetHeader } from "./SheetHeader";
-import { AppButton, RowDivider, SectionTitle, SettingRow, SettingsGroup } from "./ui";
+import { AppButton, RowDivider, SettingRow, SettingsGroup } from "./ui";
 import { createThemedStyles } from "../theme";
 import type { AppLocation, LocationIssue, LocationSearchResult } from "../types";
 import { formatLocationAccuracy } from "../utils/locationStatus";
+import { hasLocationName } from "../services/locationPolicy";
 
 export interface LocationSheetProps {
   location: AppLocation | null;
-  recentLocations: AppLocation[];
   locating: boolean;
   locationIssue: LocationIssue | null;
   locationProgress: string | null;
   onUseCurrentLocation: () => void;
   onSearchLocations: (query: string) => Promise<LocationSearchResult[]>;
   onUseManualLocation: (location: LocationSearchResult) => Promise<void>;
-  onUseRecentLocation: (location: AppLocation) => Promise<void>;
   onOpenPhoneSettings: () => void;
 }
 
-export function LocationSheet({ visible, onClose, location, recentLocations, locating, locationIssue, locationProgress, onUseCurrentLocation, onSearchLocations, onUseManualLocation, onUseRecentLocation, onOpenPhoneSettings }: LocationSheetProps & { visible: boolean; onClose: () => void }) {
+export function LocationSheet({ visible, onClose, location, locating, locationIssue, locationProgress, onUseCurrentLocation, onSearchLocations, onUseManualLocation, onOpenPhoneSettings }: LocationSheetProps & { visible: boolean; onClose: () => void }) {
   const { colors, styles } = useStyles();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
@@ -33,38 +32,58 @@ export function LocationSheet({ visible, onClose, location, recentLocations, loc
   const [issue, setIssue] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [details, setDetails] = useState(false);
+  const searchRevision = useRef(0);
+  const savingRef = useRef(false);
+  const resultsScrollRef = useRef<ScrollView>(null);
   const queryText = query.trim();
+  const unnamedLocation = location && !hasLocationName(location);
 
   useEffect(() => {
     if (!visible || queryText.length < 2) return;
     let active = true;
+    const revision = ++searchRevision.current;
+    const current = () => active && revision === searchRevision.current;
     const timer = setTimeout(() => {
       setSearching(true);
-      void onSearchLocations(queryText).then((places) => {
-        if (active) { setResults(places); setSearched(true); }
+      void Promise.resolve().then(() => onSearchLocations(queryText)).then((places) => {
+        if (current()) { setResults(places); setSearched(true); }
       }).catch((error) => {
-        if (active) setIssue(error instanceof Error ? error.message : "Couldn't search. Please try again.");
-      }).finally(() => { if (active) setSearching(false); });
+        if (current()) setIssue(error instanceof Error ? error.message : "Couldn't search. Please try again.");
+      }).finally(() => { if (current()) setSearching(false); });
     }, 400);
     return () => { active = false; clearTimeout(timer); };
   }, [onSearchLocations, queryText, visible]);
 
   const select = async (apply: () => Promise<void>) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    searchRevision.current++;
+    setSearching(false);
     setSaving(true);
     setIssue(null);
     try { await apply(); setQuery(""); setResults([]); setSearched(false); onClose(); }
     catch { setIssue("Couldn't save this location. Please try again."); }
-    finally { setSaving(false); }
+    finally { savingRef.current = false; setSaving(false); }
   };
 
   return <BottomSheetModal visible={visible} onClose={onClose} closeLabel="Close location" sheetStyle={styles.sheet}>
-    <SheetHeader title="Your location" subtitle="Prayer times follow the city you choose." onClose={onClose} />
-    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}>
-      <View style={styles.current}>
+    <SheetHeader title="Your location" onClose={onClose} />
+      <View testID="city-search" style={styles.search}>
+        <Ionicons name="search" size={20} color={colors.inkSoft} />
+        <TextInput accessibilityLabel="City or area" placeholder="Search city or area" placeholderTextColor={colors.inkSoft} value={query} autoCapitalize="words" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" style={styles.input} onSubmitEditing={() => Keyboard.dismiss()} onChangeText={text => {
+          resultsScrollRef.current?.scrollTo({ y: 0, animated: false });
+          searchRevision.current++;
+          setQuery(text); setResults([]); setSearched(false); setIssue(null); setSearching(false);
+        }} />
+        {searching || saving ? <ActivityIndicator color={colors.accent} size="small" /> : null}
+      </View>
+    <ScrollView ref={resultsScrollRef} testID="location-results" keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} style={{ flexShrink: 1, minHeight: 0 }} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}>
+      {!queryText ? <><View style={styles.current}>
         <View style={styles.locationIcon}><Ionicons name="location" size={23} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.locationName}>{location?.name || "Choose your city"}</Text>
-          <Text style={styles.caption}>{location ? location.source === "device" ? "Using your phone’s location" : "City selected manually" : "Use your phone or search below"}</Text>
+          <Text style={styles.caption}>{unnamedLocation ? "Using coordinates. Prayer times work offline." : location ? location.source === "device" ? "Using your phone’s location" : "City selected manually" : "Use your phone or search below"}</Text>
+          {unnamedLocation ? <Text selectable style={styles.caption}>{`${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`}</Text> : null}
         </View>
       </View>
       <AppButton label={locating ? "Finding your location" : "Use current phone location"} icon="locate-outline" loading={locating} disabled={saving} onPress={onUseCurrentLocation} />
@@ -73,29 +92,15 @@ export function LocationSheet({ visible, onClose, location, recentLocations, loc
         <Text accessibilityLiveRegion="polite" style={styles.noticeText}>{locationIssue.message}</Text>
         {locationIssue.canOpenSettings ? <AppButton label="Open phone settings" variant="secondary" onPress={onOpenPhoneSettings} /> : null}
       </View> : null}
-      <SectionTitle>Find a city</SectionTitle>
-      <View style={styles.search}>
-        <Ionicons name="search" size={20} color={colors.inkSoft} />
-        <TextInput accessibilityLabel="City or area" placeholder="Search city or area" placeholderTextColor={colors.inkSoft} value={query} autoCapitalize="words" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" style={styles.input} onChangeText={text => {
-          setQuery(text); setResults([]); setSearched(false); setIssue(null); setSearching(false);
-        }} />
-        {searching || saving ? <ActivityIndicator color={colors.accent} size="small" /> : null}
-      </View>
+      </> : null}
       {issue ? <Text accessibilityLiveRegion="polite" style={styles.error}>{issue}</Text> : null}
       {queryText.length >= 2 && searched && !searching && !results.length ? <Text accessibilityLiveRegion="polite" style={styles.help}>No places found. Try a nearby city or include the country.</Text> : null}
       {results.length ? <SettingsGroup>{results.map((result, index) => <View key={result.id}>
         {index ? <RowDivider /> : null}
         <SettingRow icon="location-outline" title={result.name} subtitle={result.displayName} disabled={saving} onPress={() => void select(() => onUseManualLocation(result))} />
       </View>)}</SettingsGroup> : null}
-      {!queryText && recentLocations.length ? <>
-        <SectionTitle>Recent locations</SectionTitle>
-        <SettingsGroup>{recentLocations.slice(0, 5).map((item, index) => <View key={`${item.lat}-${item.lng}`}>
-          {index ? <RowDivider /> : null}
-          <SettingRow icon="time-outline" title={item.name} subtitle={item.timeZone.replace(/_/g, " ")} disabled={saving} onPress={() => void select(() => onUseRecentLocation(item))} />
-        </View>)}</SettingsGroup>
-      </> : null}
       <Text accessibilityRole="link" onPress={() => void Linking.openURL("https://locationiq.com").catch(() => undefined)} style={styles.attribution}>Place search by LocationIQ</Text>
-      {location ? <>
+      {location && !queryText ? <>
         <SettingRow icon="information-circle-outline" title="Location details" onPress={() => setDetails(!details)} trailing={<Ionicons name={details ? "chevron-up" : "chevron-down"} size={16} color={colors.inkSoft} />} />
         {details ? <View style={styles.details}>
           <Text selectable style={styles.caption}>{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Text>

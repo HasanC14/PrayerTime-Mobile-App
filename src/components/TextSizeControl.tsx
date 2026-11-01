@@ -6,7 +6,7 @@ import { MAX_TEXT_SCALE, MIN_TEXT_SCALE, normalizeTextScale, TEXT_SCALE_STEP } f
 import { createThemedStyles } from "../theme";
 import { IconButton } from "./ui";
 
-export function TextSizeControl({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+export function TextSizeControl({ value, onChange, showTitle = true }: { value: number; onChange: (value: number) => void; showTitle?: boolean }) {
   const { colors, styles } = useStyles();
   const { isRTL, t } = useI18n();
   const [width, setWidth] = useState(0);
@@ -31,8 +31,8 @@ export function TextSizeControl({ value, onChange }: { value: number; onChange: 
   } } : {};
 
   return <View style={styles.container}>
-    <View style={styles.heading}>
-      <Text style={styles.title}>Text size</Text>
+    <View style={[styles.heading, !showTitle && { justifyContent: "flex-end" }]}>
+      {showTitle ? <Text style={styles.title}>Text size</Text> : null}
       <Text style={styles.percent}>{Math.round(value * 100)}%</Text>
     </View>
     <View style={styles.controls}>

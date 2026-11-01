@@ -1,19 +1,65 @@
+# Dependencies and tool caches (including nested promo/asset projects)
 node_modules/
 .expo/
+.cache/
+.npm/
+.turbo/
+*.tsbuildinfo
+
+# Generated app builds; native module source under modules/ stays tracked
+/android/
+/ios/
+build/
+.gradle/
 dist/
-dist-test/
-dist-test-ios/
-dist-test-sdk55/
+dist-test*/
 web-build/
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-.DS_Store
+coverage/
+*.apk
+*.aab
+*.ipa
+*.xcarchive/
+*.dSYM/
+
+# Local environment and credentials
 .env
 .env.*
 !.env.example
+credentials.json
+*.keystore
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.provisionprofile
+local.properties
+
+# Local review screenshots, reports and old SDK backups
+/review/
+
+# Local marketing projects and exports (not required to develop the app)
+/announcement-video/
+/google-play-assets/
+/PrayerTime-Google-Play-Assets.zip
+
+# Local build credentials and AI/editor workspace settings
+/.agents/
+/.codex/
+/.aws/
+/.idea/
+/.vscode/
+*.hprof
+
+# Logs and operating-system/editor temporary files
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

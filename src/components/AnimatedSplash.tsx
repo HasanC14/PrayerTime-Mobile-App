@@ -1,32 +1,13 @@
 import { useI18n } from "../i18n/context";
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Text } from "../i18n/native";
+import { AccessibilityInfo, Animated, Easing, Image, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { BrandMark } from "./BrandMark";
-import Svg, { Defs, LinearGradient as SvgGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, Image as SvgImage, LinearGradient as SvgGradient, Mask, RadialGradient, Rect, Stop } from "react-native-svg";
 
 const useNativeDriver = Platform.OS !== "web";
-export const SPLASH_BACKGROUND = "#B99ADB";
-
-function Arches() {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 400 420" preserveAspectRatio="none">
-      <Defs>
-        <SvgGradient id="arch" x1="0" y1="0" x2="0" y2="1">
-          <Stop stopColor="#E5CAF5" stopOpacity="0.64" />
-          <Stop offset="1" stopColor="#C8A5E1" stopOpacity="0.06" />
-        </SvgGradient>
-      </Defs>
-      <Path d="M-90 420V305C-90 232 17 207 34 166C51 207 158 232 158 305V420ZM242 420V305C242 232 349 207 366 166C383 207 490 232 490 305V420Z" fill="url(#arch)" opacity="0.6" />
-      <Path d="M62 420V170C62 91 181 54 200 0C219 54 338 91 338 170V420Z" fill="url(#arch)" />
-      <Path d="M82 420V245C82 175 183 137 200 88C217 137 318 175 318 245V420Z" fill="url(#arch)" />
-      <Path d="M106 420V322C106 263 184 230 200 181C216 230 294 263 294 322V420Z" fill="url(#arch)" />
-    </Svg>
-  );
-}
+export const SPLASH_BACKGROUND = "#F6F4F8";
 
 export function AnimatedSplash({ fontsReady, ready, onFinished }: {
   fontsReady: boolean;
@@ -41,10 +22,13 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [logo] = useState(() => new Animated.Value(0));
   const [title] = useState(() => new Animated.Value(0));
-  const [arches] = useState(() => new Animated.Value(0));
-  const [glow] = useState(() => new Animated.Value(0));
+  const [artwork] = useState(() => new Animated.Value(0));
   const [opacity] = useState(() => new Animated.Value(1));
-  const logoHeight = Math.min(height * 0.31, 190);
+  const logoSize = Math.min(width * 0.32, height * 0.24, 148);
+  const fontSize = Math.min(width * 0.11, 48);
+  const titleLineHeight = Math.ceil(fontSize * 1.45);
+  const brandHeight = logoSize + 28 + titleLineHeight + 20;
+  const artworkWidth = Math.min(width * 1.65, height * 1.1, 1000);
 
   useEffect(() => {
     let active = true;
@@ -70,25 +54,20 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
     if (reduceMotion) {
       logo.setValue(1);
       title.setValue(1);
-      arches.setValue(1);
+      artwork.setValue(1);
       return;
     }
     const reveal = Animated.parallel([
-      Animated.timing(logo, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver }),
+      Animated.timing(logo, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver }),
       Animated.sequence([
-        Animated.delay(160),
-        Animated.timing(title, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver })
+        Animated.delay(80),
+        Animated.timing(title, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver })
       ]),
-      Animated.timing(arches, { toValue: 1, duration: 1000, easing: Easing.out(Easing.cubic), useNativeDriver })
+      Animated.timing(artwork, { toValue: 1, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver })
     ]);
     reveal.start(({ finished }) => { if (finished) setEntered(true); });
-    const breathe = Animated.loop(Animated.sequence([
-      Animated.timing(glow, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver }),
-      Animated.timing(glow, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver })
-    ]));
-    breathe.start();
-    return () => { reveal.stop(); breathe.stop(); };
-  }, [arches, glow, logo, reduceMotion, started, title]);
+    return () => reveal.stop();
+  }, [artwork, logo, reduceMotion, started, title]);
 
   useEffect(() => {
     if (!ready || !started || (!entered && !reduceMotion)) return;
@@ -110,36 +89,48 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
       onLayout={() => setLaidOut(true)}
       style={[styles.screen, { opacity }]}
     >
-      <StatusBar style="light" />
-      <LinearGradient colors={["#C7A8E0", SPLASH_BACKGROUND, "#8D78BA"]} locations={[0, 0.42, 1]} style={StyleSheet.absoluteFill} />
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
-        opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.85] }),
-        transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }]
-      }]}>
+      <StatusBar style="dark" />
+      <LinearGradient colors={[SPLASH_BACKGROUND, "#EEE4F5", "#E1CDEE"]} locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0.7 }} end={{ x: 1, y: 0.15 }} style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Svg width="100%" height="100%">
           <Defs>
-            <RadialGradient id="halo" cx="48%" cy="28%" rx="75%" ry="48%">
-              <Stop stopColor="#EDDBFA" stopOpacity="0.5" />
-              <Stop offset="1" stopColor="#EDDBFA" stopOpacity="0" />
+            <RadialGradient id="halo" cx="35%" cy="40%" rx="85%" ry="65%">
+              <Stop stopColor="#FFFFFF" stopOpacity="0.28" />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#halo)" />
         </Svg>
+      </View>
+      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+        style={[styles.artwork, { width: artworkWidth, height: artworkWidth / 2, right: -artworkWidth * 0.12,
+          opacity: artwork.interpolate({ inputRange: [0, 1], outputRange: [0, 0.36] }),
+          transform: [{ translateY: artwork.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }]
+        }]}>
+        <Svg width="100%" height="100%" viewBox="0 0 1774 887" accessible={false}>
+          <Defs>
+            <SvgGradient id="splash-artwork-fade" x1="0" y1="0" x2="0" y2="1">
+              <Stop stopColor="#FFFFFF" stopOpacity="0" />
+              <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity="1" />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
+            </SvgGradient>
+            <Mask id="splash-artwork-mask" x="0" y="0" width="1774" height="887" maskUnits="userSpaceOnUse">
+              <Rect width="1774" height="887" fill="url(#splash-artwork-fade)" />
+            </Mask>
+          </Defs>
+          <SvgImage href={require("../../assets/illustrations/prayer-hero-moonlit.png")} width="1774" height="887" mask="url(#splash-artwork-mask)" />
+        </Svg>
       </Animated.View>
-      <Animated.View pointerEvents="none" style={[styles.arches, { height: height * 0.45, opacity: arches,
-        transform: [{ translateY: arches.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }]
-      }]}><Arches /></Animated.View>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: logo }]}>
-        <View style={[styles.sparkle, { top: height * 0.35, left: width * 0.09 }]}><Sparkle /></View>
-        <View style={[styles.sparkle, { top: height * 0.28, right: width * 0.11 }]}><Sparkle /></View>
-      </Animated.View>
-      <View style={[styles.brand, { top: height * 0.43 - logoHeight - 20 }]}>
-        <Animated.View style={{ opacity: logo, transform: [
-          { translateY: logo.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
-          { scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }
-        ] }}><BrandMark height={logoHeight} color="#FAF0FF" endColor="#D8BCEB" /></Animated.View>
-        <Animated.View style={{ opacity: title, transform: [{ translateY: title.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
-          <Text localize={false} allowFontScaling={false} style={[styles.title, { fontSize: Math.min(width * 0.095, 40) }]}>
+      <View style={[styles.brand, { top: Math.max(24, height * 0.44 - brandHeight / 2) }]}>
+        <Animated.View style={{ width: logoSize, height: logoSize, borderRadius: logoSize * 0.25, overflow: "hidden", opacity: logo, transform: [
+          { translateY: logo.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+          { scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }
+        ] }}><Image source={require("../../assets/icons/app-icon.png")} accessible={false} style={styles.illustration} /></Animated.View>
+        <Animated.View style={[styles.titleContainer, { opacity: title, transform: [{ translateY: title.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
+          {/* The brand is a fixed wordmark, independent of translated/scaled UI copy. */}
+          <Text testID="splash-wordmark" allowFontScaling={false} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
+            style={[styles.title, { fontSize, lineHeight: titleLineHeight }]}>
             PrayerTime
           </Text>
         </Animated.View>
@@ -148,14 +139,12 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
   );
 }
 
-function Sparkle() {
-  return <Svg width={7} height={9} viewBox="0 0 10 12"><Path d="M5 0L6.1 4.8L10 6L6.1 7.2L5 12L3.9 7.2L0 6L3.9 4.8Z" fill="#FCF5FF" fillOpacity="0.8" /></Svg>;
-}
-
 const styles = StyleSheet.create({
   screen: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: SPLASH_BACKGROUND, overflow: "hidden", zIndex: 10 },
-  arches: { position: "absolute", bottom: 0, left: 0, right: 0 },
-  brand: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: 20 },
-  title: { color: "#FFFFFF", fontFamily: "BricolageGrotesque_800ExtraBold", letterSpacing: -0.4, lineHeight: 52, textAlign: "center" },
-  sparkle: { position: "absolute" }
+  artwork: { position: "absolute", bottom: -8 },
+  illustration: { width: "100%", height: "100%" },
+  brand: { position: "absolute", left: 24, right: 24, alignItems: "center", gap: 28 },
+  titleContainer: { alignSelf: "stretch", paddingHorizontal: 8, paddingVertical: 10 },
+  title: { color: "#24143A", fontFamily: "BricolageGrotesque_700Bold", letterSpacing: 0,
+    includeFontPadding: true, textAlign: "center", writingDirection: "ltr", flexShrink: 1 }
 });

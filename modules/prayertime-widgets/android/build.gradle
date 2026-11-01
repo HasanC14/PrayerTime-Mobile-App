@@ -1,0 +1,13 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'com.hubxpert.prayertime.widgets'
+version = '1.0.0'
+android {
+  namespace "com.hubxpert.prayertime.widgets"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}

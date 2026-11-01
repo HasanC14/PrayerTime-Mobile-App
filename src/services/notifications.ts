@@ -8,6 +8,7 @@ import { getPrayerAlarmOccurrences } from "./prayerPeriods";
 import { getPrayerNotificationIds, savePrayerNotificationIds } from "./storage";
 import { syncPrayerReminders } from "./reminderSync";
 import { reminderTimingKey } from "./reminderSetup";
+import { getReminderWindow } from "./reminderWindow";
 
 const CHANNEL_ID = "prayer-times";
 
@@ -71,8 +72,9 @@ export async function schedulePrayerNotifications(
   if (!granted) return { scheduled: false, count: 0, reason: "permission" };
 
   const now = new Date();
-  const futureOccurrences = getPrayerAlarmOccurrences(calendar, alarms, now)
-    .slice(0, 35);
+  const window = getReminderWindow(Platform.OS);
+  const futureOccurrences = getPrayerAlarmOccurrences(calendar, alarms, now, window.days)
+    .slice(0, window.maxNotifications);
 
   const reminders = futureOccurrences.map((occurrence) => {
       const trigger = {

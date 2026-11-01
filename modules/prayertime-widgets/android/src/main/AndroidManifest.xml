@@ -1,0 +1,29 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <application>
+    <receiver android:name=".PrayerHeroWidget" android:exported="false" android:label="@string/prayertime_hero_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayertime_hero_widget_info" />
+    </receiver>
+    <receiver android:name=".NextPrayerWidget" android:exported="false" android:label="@string/prayertime_widget_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayertime_widget_info" />
+    </receiver>
+    <receiver android:name=".DaySummaryWidget" android:exported="false" android:label="@string/prayertime_summary_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayertime_summary_widget_info" />
+    </receiver>
+    <receiver android:name=".PrayerTimesWidget" android:exported="false" android:label="@string/prayertime_times_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayertime_times_widget_info" />
+    </receiver>
+    <receiver android:name=".WidgetRefreshReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

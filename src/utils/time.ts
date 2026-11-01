@@ -60,8 +60,17 @@ export function formatPrayerTimeRange(
     : `${startText} – ${endText}`;
 }
 
-export function formatDuration(durationMs: number, language: AppLanguage = "en"): string {
+export function formatDuration(durationMs: number, language: AppLanguage = "en", includeSeconds = false): string {
   if (!Number.isFinite(durationMs) || durationMs <= 0) return translateMessage("Now", language);
+  if (includeSeconds) {
+    const totalSeconds = Math.ceil(durationMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor(totalSeconds / 60) % 60;
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    return hours > 0
+      ? translateMessage("{hours}h {minutes}m {seconds}s", language, {hours, minutes: String(minutes).padStart(2, "0"), seconds})
+      : translateMessage("{minutes}m {seconds}s", language, {minutes, seconds});
+  }
   const totalMinutes = Math.max(1, Math.floor(durationMs / 60_000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -137,6 +146,7 @@ export interface PrayerGuidanceWindow {
   start: Date;
   end: Date;
   message: string;
+  summary?: string;
 }
 
 export interface SalatudDohaWindow {
@@ -145,7 +155,8 @@ export interface SalatudDohaWindow {
 }
 
 const SUNRISE_PROHIBITED_MINUTES = 15;
-const SOLAR_NOON_PROHIBITED_MINUTES = 5;
+const SOLAR_NOON_PROHIBITED_MINUTES = 6;
+const SUNSET_PROHIBITED_MINUTES = 15;
 
 export function getSalatudDohaWindow(day: PrayerDay): SalatudDohaWindow {
   return {
@@ -158,26 +169,36 @@ export function getPrayerGuidanceWindows(day: PrayerDay): PrayerGuidanceWindow[]
   return [
     {
       key: "sunrise",
-      title: "Around sunrise",
+      title: "Morning",
       start: day.instants.Sunrise,
       end: addMinutes(day.instants.Sunrise, SUNRISE_PROHIBITED_MINUTES),
-      message: "Some voluntary prayers are avoided while the sun is visibly rising. Many communities wait briefly before Duha."
+      summary: "Wait until this period ends before praying.",
+      message: "From when the sun starts to rise until it has fully risen."
     },
     {
       key: "solar-noon",
-      title: "Around solar noon",
+      title: "Noon",
       start: addMinutes(day.instants.Dhuhr, -SOLAR_NOON_PROHIBITED_MINUTES),
       end: day.instants.Dhuhr,
-      message: "A brief interval around the sun’s zenith may be avoided. Dhuhr begins after this interval has passed."
+      summary: "Wait for Dhuhr to begin before praying.",
+      message: "When the sun is directly overhead in the middle of the sky."
     },
     {
       key: "sunset",
-      title: "Around sunset",
-      start: addMinutes(day.instants.Maghrib, -10),
+      title: "Evening",
+      start: addMinutes(day.instants.Maghrib, -SUNSET_PROHIBITED_MINUTES),
       end: day.instants.Maghrib,
-      message: "Some voluntary prayers are avoided while the sun is visibly setting. Maghrib begins after sunset."
+      summary: "If you haven’t prayed today’s Asr, pray it now before sunset.",
+      message: "From when the sun starts to set until it has fully set. If you haven’t prayed today’s Asr, you can still pray it before sunset."
     }
   ];
+}
+
+export function getNextPrayerGuidanceBoundary(currentTime: Date, calendar: PrayerDay[]): Date | null {
+  const boundaries = calendar.flatMap(day => getPrayerGuidanceWindows(day).flatMap(window => [window.start, window.end]));
+  const next = boundaries.filter(date => Number.isFinite(date.getTime()) && date > currentTime)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  return next ?? null;
 }
 
 export function getCurrentPrayerGuidance(

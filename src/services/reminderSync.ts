@@ -15,7 +15,8 @@ export interface ReminderAdapter<T extends { identifier: string }> {
 export async function syncPrayerReminders<T extends { identifier: string }>(
   desired: T[], adapter: ReminderAdapter<T>
 ): Promise<number> {
-  const [pending, savedIds] = await Promise.all([adapter.list(), adapter.savedIds()]);
+  // Notification metadata still identifies our reminders if local storage cannot be read.
+  const [pending, savedIds] = await Promise.all([adapter.list(), adapter.savedIds().catch(() => [])]);
   const saved = new Set(savedIds);
   const desiredIds = new Set(desired.map((item) => item.identifier));
   const owned = pending.filter((item) => saved.has(item.identifier) || item.content.data?.kind === "prayer-end-alarm");

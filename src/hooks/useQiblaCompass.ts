@@ -34,36 +34,40 @@ export function useQiblaCompass(enabled: boolean, qiblaBearing: number | null) {
     let cancelled = false;
     let subscription: Location.LocationSubscription | null = null;
     setError(null);
+    const unavailable = () => {
+      if (cancelled) return;
+      setHeading(null);
+      setAccuracy(null);
+      setHeadingReference(null);
+      setError("The compass is unavailable on this device.");
+    };
 
-    void Location.watchHeadingAsync(
+    void Promise.resolve().then(() => Location.watchHeadingAsync(
       (reading) => {
         if (cancelled) return;
         const nextHeading = reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading;
         setHeadingReference(reading.trueHeading >= 0 ? "true" : "magnetic");
         setAccuracy(reading.accuracy);
-        if (reading.accuracy < 2 || !Number.isFinite(nextHeading) || nextHeading < 0) {
+        if (!Number.isFinite(reading.accuracy) || reading.accuracy < 2 || !Number.isFinite(nextHeading) || nextHeading < 0) {
           setHeading(null);
           return;
         }
+        setError(null);
         setHeading((current) => {
           if (current === null) return normalizeDegrees(nextHeading);
           const shortestChange = normalizeSignedAngle(nextHeading - current);
           return normalizeDegrees(current + shortestChange * 0.28);
         });
       },
-      () => {
-        if (!cancelled) setError("The compass is unavailable on this device.");
-      }
-    ).then((result) => {
+      unavailable
+    )).then((result) => {
       if (cancelled) result.remove();
       else subscription = result;
-    }).catch(() => {
-      if (!cancelled) setError("The compass is unavailable on this device.");
-    });
+    }).catch(unavailable);
 
     return () => {
       cancelled = true;
-      subscription?.remove();
+      try { subscription?.remove(); } catch { /* The screen is no longer using the sensor. */ }
     };
   }, [appActive, enabled]);
 

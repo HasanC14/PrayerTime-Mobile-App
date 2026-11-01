@@ -75,14 +75,22 @@ async function fetchLocationIq<T>(path: string, params: Record<string, string>):
     if (error instanceof Error && error.name === "AbortError") {
       throw new LocationIqError("Location search took too long. Please try again.");
     }
-    throw new LocationIqError("Could not reach the location service. Check your connection and try again.");
+    throw new LocationIqError("City search is unavailable. Check your connection or use your phone’s location.");
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function firstNonEmpty(values: (string | undefined)[]): string | undefined {
-  return values.find((value) => Boolean(value?.trim()))?.trim();
+function textValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function firstNonEmpty(values: unknown[]): string | undefined {
+  return values.map(textValue).find(Boolean);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 export function formatLocationIqName(place: LocationIqPlace): string {
@@ -98,17 +106,28 @@ export function formatLocationIqName(place: LocationIqPlace): string {
         address.state
       ])
     : undefined;
-  const country = address?.country?.trim();
+  const country = textValue(address?.country);
 
   if (locality && country && locality.toLocaleLowerCase() !== country.toLocaleLowerCase()) {
     return `${locality}, ${country}`;
   }
-  return locality || country || place.display_name?.split(",")[0]?.trim() || "Selected location";
+  return locality || country || textValue(place.display_name)?.split(",")[0]?.trim() || "Selected location";
 }
 
-function toSearchResult(place: LocationIqPlace, index: number): LocationSearchResult | null {
-  const lat = Number(place.lat);
-  const lng = Number(place.lon);
+function coordinate(value: unknown): number {
+  return typeof value === "number" || (typeof value === "string" && value.trim()) ? Number(value) : NaN;
+}
+
+function countryCode(value: unknown): string | undefined {
+  const text = textValue(value);
+  return text && /^[a-z]{2}$/i.test(text) ? text.toUpperCase() : undefined;
+}
+
+function toSearchResult(value: unknown, index: number): LocationSearchResult | null {
+  if (!isRecord(value)) return null;
+  const place = value as LocationIqPlace;
+  const lat = coordinate(place.lat);
+  const lng = coordinate(place.lon);
   if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
     return null;
   }
@@ -116,10 +135,10 @@ function toSearchResult(place: LocationIqPlace, index: number): LocationSearchRe
   return {
     id: String(place.place_id ?? place.osm_id ?? `${lat}:${lng}:${index}`),
     name: formatLocationIqName(place),
-    displayName: place.display_name?.trim() || formatLocationIqName(place),
+    displayName: textValue(place.display_name) || formatLocationIqName(place),
     lat,
     lng,
-    countryCode: place.address?.country_code?.toUpperCase()
+    countryCode: countryCode(place.address?.country_code)
   };
 }
 
@@ -127,15 +146,19 @@ export async function reverseGeocodeLocation(
   lat: number,
   lng: number
 ): Promise<{ name: string; countryCode?: string }> {
-  const place = await fetchLocationIq<LocationIqPlace>("reverse", {
+  const value = await fetchLocationIq<unknown>("reverse", {
     lat: String(lat),
     lon: String(lng),
     zoom: "10"
   });
+  if (!isRecord(value)) throw new LocationIqError("Location names are temporarily unavailable.");
+  const place = value as LocationIqPlace;
+  const name = formatLocationIqName(place);
+  if (name === "Selected location") throw new LocationIqError("Location names are temporarily unavailable.");
 
   return {
-    name: formatLocationIqName(place),
-    countryCode: place.address?.country_code?.toUpperCase()
+    name,
+    countryCode: countryCode(place.address?.country_code)
   };
 }
 
@@ -145,11 +168,12 @@ export async function searchLocations(query: string, language: AppLanguage = "en
     throw new LocationIqError("Enter at least two characters to search.");
   }
 
-  const places = await fetchLocationIq<LocationIqPlace[]>("search", {
+  const places = await fetchLocationIq<unknown>("search", {
     q: normalizedQuery,
     limit: "6",
     "accept-language": language
   });
+  if (!Array.isArray(places)) throw new LocationIqError("Location names are temporarily unavailable.");
   const seen = new Set<string>();
   const results: LocationSearchResult[] = [];
 

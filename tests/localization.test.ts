@@ -69,3 +69,16 @@ test("changing display language leaves prayer instants and date keys unchanged",
     assert.deepEqual(localized, english);
   }
 });
+
+// Countdown boundaries stay accurate without showing zero before the target.
+test("second-precision countdowns localize and cross minute/hour boundaries", () => {
+  assert.equal(formatDuration(60_001, "en", true), "1m 01s");
+  assert.equal(formatDuration(60_000, "en", true), "1m 00s");
+  assert.equal(formatDuration(59_000, "en", true), "0m 59s");
+  assert.equal(formatDuration(1, "en", true), "0m 01s");
+  assert.equal(formatDuration(0, "en", true), "Now");
+  assert.equal(formatDuration(-1, "en", true), "Now");
+  assert.equal(formatDuration(3_600_000, "en", true), "1h 00m 00s");
+  assert.equal(formatDuration(65_000, "bn", true), "১মি ০৫সে");
+  assert.equal(formatDuration(65_000, "ar", true), "١د ٠٥ث");
+});

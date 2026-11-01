@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSavedValue } from "./useSavedValue";
 import { AppState, type AppStateStatus } from "react-native";
 import * as Haptics from "expo-haptics";
 import tzLookup from "tz-lookup";
 
-import { DEFAULT_PRAYER_ALARMS, DEFAULT_SETTINGS, FALLBACK_LOCATION } from "../constants/settings";
+import { DEFAULT_PRAYER_ALARMS, DEFAULT_SETTINGS } from "../constants/settings";
 import {
   ensureForegroundLocationPermission,
   getCurrentDeviceLocation,
@@ -13,7 +14,9 @@ import {
   toLocationIssue,
   watchDeviceLocation
 } from "../services/location";
-import { distanceInMeters, LOCATION_STALE_MS, shouldApplyDeviceUpdate, shouldRestoreDeviceLocation } from "../services/locationPolicy";
+import { distanceInMeters, hasLocationName, LOCATION_STALE_MS, shouldApplyDeviceUpdate, shouldRestoreDeviceLocation } from "../services/locationPolicy";
+import { LOCATION_NAME_RETRY_MS, mergeDeviceLocationName } from "../services/deviceLocationName";
+import { createDeviceLocationRefresh } from "../services/deviceLocationRefresh";
 import { searchLocations } from "../services/locationIq";
 import {
   cancelPrayerNotifications,
@@ -21,11 +24,11 @@ import {
   schedulePrayerNotifications
 } from "../services/notifications";
 import { calculatePrayerCalendar, getDateKeyInTimeZone } from "../services/prayerTimes";
+import { REMINDER_CALENDAR_DAYS } from "../services/reminderWindow";
 import {
   loadPersistedState,
-  mergeRecentLocations,
+  clearRecentLocationHistory,
   saveLocation,
-  saveRecentLocations,
   saveSettings
 } from "../services/storage";
 import { notificationAccessMessage } from "../services/notificationAccess";
@@ -41,7 +44,10 @@ import type {
   PrayerName,
   NotificationAccess
 } from "../types";
-import { getCurrentPrayerGuidance, getPrayerState } from "../utils/time";
+import { getCurrentPrayerGuidance, getNextPrayerGuidanceBoundary, getPrayerState } from "../utils/time";
+import { useHomeScreenWidget } from "./useHomeScreenWidget";
+import { usePrayerJournal } from "./usePrayerJournal";
+import { getJournalDateKey } from "../services/journalOverview";
 
 async function gentleHaptic(): Promise<void> {
   try {
@@ -53,11 +59,15 @@ async function gentleHaptic(): Promise<void> {
 
 export function usePrayerTimeApp() {
   const [booting, setBooting] = useState(true);
+  const [restoreIssue, setRestoreIssue] = useState(false);
+  const [restoreRevision, setRestoreRevision] = useState(0);
+  const [saveRevision, setSaveRevision] = useState(0);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [location, setLocation] = useState<AppLocation | null>(null);
-  const [recentLocations, setRecentLocations] = useState<AppLocation[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [locating, setLocating] = useState(false);
+  const [deviceLookupBusy, setDeviceLookupBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [locationIssue, setLocationIssue] = useState<LocationIssue | null>(null);
   const [notificationIssue, setNotificationIssue] = useState<string | null>(null);
   const [notificationAccess, setNotificationAccess] = useState<NotificationAccess>({ status: "unknown", canAskAgain: true, channelBlocked: false, soundEnabled: true, bannersEnabled: true });
@@ -70,10 +80,11 @@ export function usePrayerTimeApp() {
   const [appActive, setAppActive] = useState(AppState.currentState === "active");
 
   const mountedRef = useRef(true);
-  const bootedRef = useRef(false);
   const locationRef = useRef<AppLocation | null>(null);
-  const deviceRefreshIdRef = useRef(0);
-  const locationAbortRef = useRef<AbortController | null>(null);
+  const deviceRefreshRef = useRef<ReturnType<typeof createDeviceLocationRefresh> | null>(null);
+  const homeRefreshRef = useRef<Promise<void> | null>(null);
+  const refreshFrameRef = useRef<number | null>(null);
+  const finishHomeRefreshRef = useRef<(() => void) | null>(null);
   const notificationRequestRef = useRef<Promise<boolean> | null>(null);
   const pendingReminderRef = useRef<ReminderSelection | null>(null);
   const reminderEnableRef = useRef<Promise<boolean> | null>(null);
@@ -89,8 +100,12 @@ export function usePrayerTimeApp() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      deviceRefreshIdRef.current += 1;
-      locationAbortRef.current?.abort();
+      deviceRefreshRef.current?.cancel();
+      if (refreshFrameRef.current !== null) cancelAnimationFrame(refreshFrameRef.current);
+      finishHomeRefreshRef.current?.();
+      refreshFrameRef.current = null;
+      finishHomeRefreshRef.current = null;
+      homeRefreshRef.current = null;
     };
   }, []);
 
@@ -99,90 +114,71 @@ export function usePrayerTimeApp() {
     setLocation(nextLocation);
     setLocationIssue(null);
     locationRef.current = nextLocation;
-    setRecentLocations((current) => {
-      const next = mergeRecentLocations(nextLocation, current);
-      void saveRecentLocations(next).catch((error) => console.warn("Unable to save recent locations", error));
-      return next;
-    });
-    await saveLocation(nextLocation).catch((error) => console.warn("Unable to save location", error));
   }, []);
 
-  const applyDeviceLocation = useCallback(async (next: AppLocation) => {
-    const previous = locationRef.current;
-    const nearby = previous?.source === "device" && distanceInMeters(previous, next) < 1000;
-    const immediate = nearby ? { ...next, name: previous.name, countryCode: previous.countryCode } : next;
-    await applyLocation(immediate);
-    void resolveDeviceLocationName(immediate).then((named) => {
-      // A city lookup must never overwrite a newer GPS fix or manual selection.
-      if (mountedRef.current && locationRef.current === immediate && named !== immediate) {
-        void applyLocation(named);
-      }
-    });
+  const refreshLocationName = useCallback(async (target: AppLocation, retryNow = false) => {
+    if (target.source !== "device" || hasLocationName(target)) return;
+    const named = await resolveDeviceLocationName(target, { retryNow });
+    if (!mountedRef.current) return;
+    const current = locationRef.current;
+    const merged = mergeDeviceLocationName(current, target, named);
+    if (merged && merged !== current) await applyLocation(merged);
   }, [applyLocation]);
 
-  const refreshDeviceLocation = useCallback(
-    async (requestPermission: boolean): Promise<boolean> => {
-      const requestId = deviceRefreshIdRef.current + 1;
-      locationAbortRef.current?.abort();
-      const controller = new AbortController();
-      locationAbortRef.current = controller;
-      deviceRefreshIdRef.current = requestId;
-      const isCurrentRequest = () => mountedRef.current && deviceRefreshIdRef.current === requestId;
-      setLocating(true);
-      setLocationIssue(null);
-      setLocationProgress(requestPermission ? "Checking location permission and phone settings…" : "Refreshing phone location…");
-      let quickLocationApplied = false;
+  const applyDeviceLocation = useCallback(async (next: AppLocation, retryName = false) => {
+    const previous = locationRef.current;
+    const nearby = previous?.source === "device" && previous.timeZone === next.timeZone && distanceInMeters(previous, next) < 1000;
+    const immediate = nearby ? { ...next, name: previous.name, countryCode: previous.countryCode } : next;
+    await applyLocation(immediate);
+    void refreshLocationName(immediate, retryName);
+  }, [applyLocation, refreshLocationName]);
 
-      try {
-        await ensureForegroundLocationPermission(requestPermission);
-        if (!isCurrentRequest()) return false;
-        setLocationProgress("Finding your current position…");
+  useEffect(() => {
+    const service = createDeviceLocationRefresh({
+      ensureAccess: ensureForegroundLocationPermission,
+      cached: getLastKnownDeviceLocation,
+      fresh: getCurrentDeviceLocation,
+      current: () => locationRef.current,
+      apply: applyDeviceLocation,
+      busy: (pending, explicit) => {
+        if (!mountedRef.current) return;
+        setDeviceLookupBusy(pending);
+        setLocating(pending && explicit);
+      },
+      progress: value => { if (mountedRef.current) setLocationProgress(value); },
+      issue: error => { if (mountedRef.current) setLocationIssue(toLocationIssue(error)); },
+    });
+    deviceRefreshRef.current = service;
+    return () => { service.cancel(); deviceRefreshRef.current = null; };
+  }, [applyDeviceLocation]);
 
-        try {
-          const quickLocation = await getLastKnownDeviceLocation();
-          if (quickLocation && isCurrentRequest()) {
-            const currentLocation = locationRef.current;
-            const shouldApplyQuickLocation =
-              currentLocation?.source !== "device" || quickLocation.capturedAt >= currentLocation.capturedAt;
-            if (shouldApplyQuickLocation) {
-              await applyDeviceLocation(quickLocation);
-              quickLocationApplied = true;
-              if (isCurrentRequest()) setLocationProgress("Updating your location…");
-            }
-          }
-        } catch {
-          // A fresh fix below is still useful when no cached position exists.
-        }
+  const refreshDeviceLocation = useCallback((requestPermission: boolean) => {
+    if (requestPermission) setLocationIssue(null);
+    return deviceRefreshRef.current?.refresh(requestPermission) ?? Promise.resolve(false);
+  }, []);
 
-        try {
-          if (!isCurrentRequest()) return false;
-          const freshLocation = await getCurrentDeviceLocation(requestPermission, controller.signal);
-          if (isCurrentRequest()) await applyDeviceLocation(freshLocation);
-        } catch (error) {
-          if (!quickLocationApplied) throw error;
-          if (isCurrentRequest()) {
-            setLocationIssue({
-              code: "unavailable",
-              message: "Your current location is unavailable. Prayer times use your saved location. Tap Use current phone location to try again.",
-              canOpenSettings: true
-            });
-          }
-        }
-
-        if (isCurrentRequest()) await gentleHaptic();
-        return true;
-      } catch (error) {
-        if (isCurrentRequest()) setLocationIssue(toLocationIssue(error));
-        return false;
-      } finally {
-        if (isCurrentRequest()) {
-          setLocating(false);
-          setLocationProgress(null);
-        }
-      }
-    },
-    [applyDeviceLocation]
-  );
+  const refreshHome = useCallback((): Promise<void> => {
+    if (homeRefreshRef.current) return homeRefreshRef.current;
+    setRefreshing(true);
+    setNow(new Date());
+    setCalculationRevision(current => current + 1);
+    setForegroundRevision(current => current + 1);
+    if (locationRef.current?.source === "device") void refreshDeviceLocation(false);
+    // Finish after the local calculation can render; GPS, geocoding, storage,
+    // reminder delivery and widget publishing never hold the swipe spinner.
+    const task = new Promise<void>(resolve => {
+      finishHomeRefreshRef.current = resolve;
+      refreshFrameRef.current = requestAnimationFrame(() => {
+        refreshFrameRef.current = null;
+        if (mountedRef.current) setRefreshing(false);
+        homeRefreshRef.current = null;
+        finishHomeRefreshRef.current = null;
+        resolve();
+      });
+    });
+    homeRefreshRef.current = task;
+    return task;
+  }, [refreshDeviceLocation]);
 
   useEffect(() => {
     let active = true;
@@ -195,14 +191,15 @@ export function usePrayerTimeApp() {
         setSettings(persisted.settings);
         setLocation(persisted.location);
         locationRef.current = persisted.location;
-        setRecentLocations(persisted.recentLocations);
+        setRestoreIssue(false);
+        void clearRecentLocationHistory();
         restoreDeviceLocation = shouldRestoreDeviceLocation(persisted.location);
       } catch (error) {
         console.warn("Unable to restore saved PrayerTime data", error);
+        if (active) setRestoreIssue(true);
       }
 
       if (active) {
-        bootedRef.current = true;
         setBooting(false);
         if (restoreDeviceLocation) void refreshDeviceLocation(false);
       }
@@ -212,10 +209,10 @@ export function usePrayerTimeApp() {
     return () => {
       active = false;
     };
-  }, [refreshDeviceLocation]);
+  }, [refreshDeviceLocation, restoreRevision]);
 
   useEffect(() => {
-    if (booting) return;
+    if (booting || restoreIssue) return;
     let active = true;
     void Promise.all([getNotificationAccess(false, settings.language), getExactAlarmAccess().catch(() => null)]).then(([access, exact]) => {
       if (!active) return;
@@ -234,12 +231,11 @@ export function usePrayerTimeApp() {
       if (active) setNotificationIssue("Could not check reminder access. Turn on Prayer reminders to try again.");
     });
     return () => { active = false; };
-  }, [booting, foregroundRevision, settings.language]);
+  }, [booting, foregroundRevision, restoreIssue, settings.language]);
 
-  useEffect(() => {
-    if (!bootedRef.current) return;
-    void saveSettings(settings).catch((error) => console.warn("Unable to save settings", error));
-  }, [settings]);
+  const persistenceReady = !booting && !restoreIssue;
+  const settingsSaveIssue = useSavedValue(settings, saveSettings, persistenceReady, saveRevision);
+  const locationSaveIssue = useSavedValue(location, saveLocation, persistenceReady, saveRevision);
 
   useEffect(() => {
     let appState: AppStateStatus = AppState.currentState;
@@ -256,6 +252,7 @@ export function usePrayerTimeApp() {
       setNow(new Date());
       setForegroundRevision((current) => current + 1);
       const currentLocation = locationRef.current;
+      if (currentLocation?.source === "device") void refreshLocationName(currentLocation, true);
       if (
         currentLocation?.source === "device" &&
         Date.now() - currentLocation.capturedAt > LOCATION_STALE_MS
@@ -268,11 +265,24 @@ export function usePrayerTimeApp() {
       clearInterval(timer);
       subscription.remove();
     };
-  }, [refreshDeviceLocation]);
+  }, [refreshDeviceLocation, refreshLocationName]);
+
+  // Naming retries independently of GPS movement, including on a stationary phone.
+  useEffect(() => {
+    if (booting || restoreIssue || !appActive || !location || location.source !== "device" || hasLocationName(location)) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const retry = async () => {
+      await refreshLocationName(location);
+      if (!cancelled) timer = setTimeout(() => { void retry(); }, LOCATION_NAME_RETRY_MS);
+    };
+    void retry();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [appActive, booting, location, refreshLocationName, restoreIssue]);
 
   const locationSource = location?.source;
   useEffect(() => {
-    if (booting || !appActive || locating || locationSource !== "device") return;
+    if (booting || restoreIssue || !appActive || deviceLookupBusy || locationSource !== "device") return;
     let cancelled = false;
     let subscription: { remove: () => void } | undefined;
     void watchDeviceLocation((next) => {
@@ -290,7 +300,7 @@ export function usePrayerTimeApp() {
       cancelled = true;
       subscription?.remove();
     };
-  }, [appActive, applyDeviceLocation, booting, locating, locationSource]);
+  }, [appActive, applyDeviceLocation, booting, deviceLookupBusy, locationSource, restoreIssue]);
 
   const dateKey = location ? getDateKeyInTimeZone(now, location.timeZone) : "";
   const calculationKey = `${dateKey}|${location?.lat}|${location?.lng}|${location?.timeZone}|${location?.countryCode}|${settings.method}|${settings.school}|${settings.midnightMode}|${settings.latitudeAdjustmentMethod}|${calculationRevision}`;
@@ -299,7 +309,7 @@ export function usePrayerTimeApp() {
     if (!location) return { calendar: [], error: null };
     try {
       return {
-        calendar: calculatePrayerCalendar(location, settings, now, 1, 8),
+        calendar: calculatePrayerCalendar(location, settings, now, 1, REMINDER_CALENDAR_DAYS),
         error: null
       };
     } catch (error) {
@@ -317,10 +327,23 @@ export function usePrayerTimeApp() {
     [calculation.calendar, dateKey]
   );
   const prayerState = useMemo(() => getPrayerState(now, calculation.calendar), [now, calculation.calendar]);
+  const journal = usePrayerJournal(settings.prayerTrackingEnabled,
+    location ? getJournalDateKey(now, calculation.calendar, location.timeZone) : null);
   const guidance = useMemo(() => getCurrentPrayerGuidance(now, today), [now, today]);
 
   useEffect(() => {
-    if (booting) return;
+    if (booting || restoreIssue || !appActive) return;
+    const currentTime = new Date();
+    const next = [getNextPrayerGuidanceBoundary(currentTime, calculation.calendar), getPrayerState(currentTime, calculation.calendar).next?.date]
+      .filter((date): date is Date => Boolean(date)).sort((a, b) => a.getTime() - b.getTime())[0];
+    if (!next) return;
+    const timer = setTimeout(() => setNow(new Date()), Math.max(1, next.getTime() - Date.now()));
+    return () => clearTimeout(timer);
+  }, [appActive, booting, calculation.calendar, now, restoreIssue]);
+  useHomeScreenWidget({ calendar: calculation.calendar, location, settings, ready: !booting && !restoreIssue, foregroundRevision });
+
+  useEffect(() => {
+    if (booting || restoreIssue) return;
     const shouldEnable = settings.notificationsEnabled && !calculation.error && calculation.calendar.length > 0;
     const revision = ++notificationRevisionRef.current;
 
@@ -343,9 +366,11 @@ export function usePrayerTimeApp() {
             } else if (mountedRef.current) {
               setNotificationIssue(null);
             }
-          } else {
+          } else if (!settings.notificationsEnabled) {
             await cancelPrayerNotifications();
             if (mountedRef.current) setNotificationIssue(null);
+          } else if (mountedRef.current && revision === notificationRevisionRef.current) {
+            setNotificationIssue("Prayer reminders couldn't be refreshed. Previously scheduled reminders are unchanged.");
           }
         } catch (error) {
           console.warn("Unable to sync prayer alarms", error);
@@ -356,6 +381,7 @@ export function usePrayerTimeApp() {
       });
   }, [
     booting,
+    restoreIssue,
     calculation.calendar,
     calculation.error,
     settings.language,
@@ -502,8 +528,7 @@ export function usePrayerTimeApp() {
 
   const useManualLocation = useCallback(
     async (value: LocationSearchResult) => {
-      deviceRefreshIdRef.current += 1;
-      locationAbortRef.current?.abort();
+      deviceRefreshRef.current?.cancel();
       if (mountedRef.current) setLocating(false);
       let timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       try {
@@ -525,32 +550,17 @@ export function usePrayerTimeApp() {
     [applyLocation]
   );
 
-  const useRecentLocation = useCallback(
-    async (value: AppLocation) => {
-      deviceRefreshIdRef.current += 1;
-      locationAbortRef.current?.abort();
-      if (mountedRef.current) setLocating(false);
-      await applyLocation({ ...value, source: "manual", capturedAt: Date.now() });
-      await gentleHaptic();
-    },
-    [applyLocation]
-  );
-
-  const useDhakaTemporarily = useCallback(async () => {
-    deviceRefreshIdRef.current += 1;
-    locationAbortRef.current?.abort();
-    if (mountedRef.current) setLocating(false);
-    await applyLocation({ ...FALLBACK_LOCATION, capturedAt: Date.now() });
-    await gentleHaptic();
-  }, [applyLocation]);
-
   const searchLocationsForLanguage = useCallback((query: string) => searchLocations(query, settings.language), [settings.language]);
 
   return {
     booting,
+    restoreIssue,
+    retryRestore: () => { setBooting(true); setRestoreRevision(current => current + 1); },
+    storageIssue: settingsSaveIssue || locationSaveIssue,
+    retrySaving: () => setSaveRevision(current => current + 1),
     settings,
+    journal,
     location,
-    recentLocations,
     now,
     locating,
     locationProgress,
@@ -570,6 +580,8 @@ export function usePrayerTimeApp() {
     prayerState,
     guidance,
     refreshDeviceLocation,
+    refreshHome,
+    refreshing,
     openLocationSettings: () => openLocationSettings(locationIssue?.code === "services-disabled" || locationIssue?.code === "settings-unsatisfied")
       .catch(() => setLocationIssue({ code: "unavailable", message: "Open your phone settings to manage location access.", canOpenSettings: false })),
     updateSetting,
@@ -577,8 +589,6 @@ export function usePrayerTimeApp() {
     togglePrayerAlarm,
     searchLocations: searchLocationsForLanguage,
     useManualLocation,
-    useRecentLocation,
-    useDhakaTemporarily,
     retryCalculation: () => {
       setCalculationRevision((current) => current + 1);
       setNow(new Date());

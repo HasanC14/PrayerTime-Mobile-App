@@ -71,7 +71,9 @@ export function CalendarScreen({
       timeFormat: "12h",
       ramadanMode: "off",
       themeMode: "system",
+      heroArtwork: DEFAULT_SETTINGS.heroArtwork,
       notificationsEnabled: false,
+      prayerTrackingEnabled: false,
       alarmLeadMinutes: DEFAULT_SETTINGS.alarmLeadMinutes,
       prayerAlarmMinutes: DEFAULT_PRAYER_ALARMS
     }),
@@ -204,7 +206,7 @@ export function CalendarScreen({
               const meta = PRAYER_EVENT_META[name];
               const period = name === "Sunrise" ? undefined : selectedPrayerPeriods.get(name);
               return (
-                <View key={name} style={[styles.prayerRow, index < PRAYER_EVENTS.length - 1 && styles.prayerBorder]}>
+                <View key={name} style={[styles.prayerRow, compact && styles.prayerRowCompact, index < PRAYER_EVENTS.length - 1 && styles.prayerBorder]}>
                   <View style={styles.prayerIcon}>
                     <Ionicons name={meta.icon} size={19} color={colors.accent} />
                   </View>
@@ -280,6 +282,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   selectedHijri: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, marginTop: 2 },
   scheduleCard: { overflow: "hidden" },
   prayerRow: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: spacing.lg },
+  prayerRowCompact: {paddingVertical: 8},
   prayerBorder: { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
   prayerIcon: { alignItems: "center", height: 32, justifyContent: "center", marginEnd: spacing.md, width: 32 },
   prayerCopy: { flex: 1 },

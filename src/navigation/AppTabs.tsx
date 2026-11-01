@@ -1,9 +1,13 @@
 import { useCallback, useState, type ComponentProps } from "react";
-import { Linking, Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Text } from "../i18n/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import type { PrayerTabParamList, RootStackParamList } from "./routes";
+import { JournalScreen } from "../screens/JournalScreen";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useI18n } from "../i18n/context";
@@ -20,28 +24,19 @@ import type { SettingsSection } from "../screens/SettingsScreen";
 import { createThemedStyles } from "../theme";
 
 type AppController = ReturnType<typeof usePrayerTimeApp>;
-type RootTabParamList = {
-  Prayer: undefined;
-  Qibla: undefined;
-  Tasbeeh: undefined;
-  Calendar: undefined;
-  Settings: { section?: SettingsSection; requestId?: number } | undefined;
-};
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const DONATION_URL =
-  process.env.EXPO_PUBLIC_DONATION_URL?.trim() || "https://www.supportkori.com/devhasan";
+const Tab = createBottomTabNavigator<PrayerTabParamList>();
 
-const Tab = createBottomTabNavigator<RootTabParamList>();
-
-const TAB_ICONS: Record<keyof RootTabParamList, { active: ComponentProps<typeof Ionicons>["name"]; inactive: ComponentProps<typeof Ionicons>["name"] }> = {
+const TAB_ICONS: Record<keyof PrayerTabParamList, { active: ComponentProps<typeof Ionicons>["name"]; inactive: ComponentProps<typeof Ionicons>["name"] }> = {
   Prayer: { active: "time", inactive: "time-outline" },
   Qibla: { active: "compass", inactive: "compass-outline" },
   Tasbeeh: { active: "ellipse", inactive: "ellipse-outline" },
   Calendar: { active: "calendar", inactive: "calendar-clear-outline" },
-  Settings: { active: "settings", inactive: "settings-outline" }
+  Journal: { active: "book", inactive: "book-outline" }
 };
 
-export function AppTabs({ app }: { app: AppController }) {
+function PrayerTabs({ app, onOpenSettings }: { app: AppController; onOpenSettings: (section?: SettingsSection) => void }) {
   const { colors, styles } = useStyles();
   const { t } = useI18n();
   const textScale = useTextScale();
@@ -94,10 +89,11 @@ export function AppTabs({ app }: { app: AppController }) {
         })}
       >
         <Tab.Screen name="Prayer">
-          {({ navigation }) => (
+          {() => (
             <HomeScreen
               location={app.location!}
               settings={app.settings}
+              journal={app.journal}
               now={app.now}
               today={app.today}
               calendar={app.calendar}
@@ -108,13 +104,11 @@ export function AppTabs({ app }: { app: AppController }) {
               locationIssue={app.locationIssue}
               notificationIssue={app.notificationIssue}
               locationProgress={app.locationProgress}
-              onOpenLocation={() => navigation.navigate("Settings", { section: "location", requestId: Date.now() })}
-              onDonate={() => void Linking.openURL(DONATION_URL).catch(() => undefined)}
+              onOpenLocation={() => onOpenSettings("location")}
+              onOpenSettings={() => onOpenSettings()}
               onTogglePrayerAlarm={app.togglePrayerAlarm}
-              onRefresh={() => {
-                if (app.location?.source === "device") void app.refreshDeviceLocation(false);
-                else navigation.navigate("Settings", { section: "location", requestId: Date.now() });
-              }}
+              refreshing={app.refreshing}
+              onRefresh={() => void app.refreshHome()}
               onOpenGuidance={() => setGuidanceOpen(true)}
               onRetry={app.retryCalculation}
             />
@@ -135,33 +129,9 @@ export function AppTabs({ app }: { app: AppController }) {
         <Tab.Screen name="Calendar">
           {() => <CalendarScreen location={app.location!} settings={app.settings} now={app.now} />}
         </Tab.Screen>
-        <Tab.Screen name="Settings">
-          {({ route }) => (
-            <SettingsScreen
-              settings={app.settings}
-              location={app.location}
-              recentLocations={app.recentLocations}
-              locating={app.locating}
-              locationIssue={app.locationIssue}
-              locationProgress={app.locationProgress}
-              notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
-              onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
-              onSearchLocations={app.searchLocations}
-              onUseManualLocation={app.useManualLocation}
-              onUseRecentLocation={app.useRecentLocation}
-              onOpenPhoneSettings={() => void app.openLocationSettings()}
-              onUpdateSetting={app.updateSetting}
-              onSetAlarmLeadMinutes={app.setAlarmLeadMinutes}
-              focusRequest={
-                route.params?.section && route.params.requestId
-                  ? {
-                      section: route.params.section,
-                      requestId: route.params.requestId
-                    }
-                  : undefined
-              }
-            />
-          )}
+        <Tab.Screen name="Journal">
+          {() => <JournalScreen location={app.location!} settings={app.settings} calendar={app.calendar} now={app.now}
+            journal={app.journal} onEnable={() => app.updateSetting("prayerTrackingEnabled", true)} onOpenSettings={() => onOpenSettings()} />}
         </Tab.Screen>
       </Tab.Navigator>
 
@@ -173,6 +143,43 @@ export function AppTabs({ app }: { app: AppController }) {
       />
     </>
   );
+}
+
+export function AppTabs({app}: {app: AppController}) {
+  const {colors} = useStyles();
+  const reducedMotion = useReducedMotion();
+  return <Stack.Navigator screenOptions={{headerShown: false, contentStyle: {backgroundColor: colors.background}, animation: reducedMotion ? "none" : "default"}}>
+    <Stack.Screen name="Main">
+      {({navigation}) => <PrayerTabs app={app} onOpenSettings={section => navigation.navigate("Settings", section ? {section, requestId: Date.now()} : undefined)} />}
+    </Stack.Screen>
+    <Stack.Screen name="Settings">
+      {({ route, navigation }) => (
+        <SettingsScreen
+          onBack={() => navigation.goBack()}
+          settings={app.settings}
+          location={app.location}
+          locating={app.locating}
+          locationIssue={app.locationIssue}
+          locationProgress={app.locationProgress}
+          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
+          onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
+          onSearchLocations={app.searchLocations}
+          onUseManualLocation={app.useManualLocation}
+          onOpenPhoneSettings={() => void app.openLocationSettings()}
+          onUpdateSetting={app.updateSetting}
+          onSetAlarmLeadMinutes={app.setAlarmLeadMinutes}
+          focusRequest={
+            route.params?.section && route.params.requestId
+              ? {
+                  section: route.params.section,
+                  requestId: route.params.requestId
+                }
+              : undefined
+          }
+        />
+      )}
+    </Stack.Screen>
+  </Stack.Navigator>;
 }
 
 const useStyles = createThemedStyles((colors) => StyleSheet.create({
