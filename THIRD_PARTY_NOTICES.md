@@ -20,4 +20,6 @@ Launcher SVG sources are in `assets/icons/`; shared brand geometry is in `src/co
 
 The prayer hero illustrations are bundled in `assets/illustrations/`. The Serenity illustration was generated for the project. Mosque skyline and Moonlit palms were derived from supplied image references; the generation process is documented in that directory. The maintainer has confirmed that they hold the rights needed to redistribute the derived illustrations publicly. Underlying third-party references retain their own terms; the source-code license does not relicense those references.
 
-Local marketing videos, supplied audio, store exports, and review captures are excluded from this repository. They are not part of the app's source distribution.
+Selected promotional images in `docs/assets/` show the project's artwork and app interface and are included for the README. The full local marketing videos, supplied audio, store export packs, and review captures are excluded from this repository.
+
+The Google Play badge in `docs/assets/google-play-badge.png` is Google's official English badge, downloaded from [Google's badge asset](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png). Google Play and the Google Play logo are trademarks of Google LLC; the badge is not covered by the project's MIT license.

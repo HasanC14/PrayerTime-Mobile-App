@@ -1,27 +1,45 @@
-# PrayerTime
+<p align="center">
+  <img src="docs/assets/banner.png" alt="PrayerTime — Make room for your prayers. Open source. No ads. No account." width="100%">
+</p>
 
-A simple prayer app. No ads. No account needed.
+<h1 align="center">PrayerTime</h1>
 
-[Get it on Google Play](https://play.google.com/store/apps/details?id=com.hasanbuilds.prayertime)
+<p align="center">
+  A little space for prayer in your everyday.<br>
+  Prayer times, gentle reminders, and a private journal.
+</p>
 
-## What it does
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.hasanbuilds.prayertime">
+    <img src="docs/assets/google-play-badge.png" alt="Get it on Google Play" width="190">
+  </a>
+</p>
 
-- Shows prayer times and optional reminders.
-- Helps you find the Qibla direction.
-- Keeps a private prayer journal, with weekly and monthly views.
-- Includes a Tasbeeh counter and a prayer calendar.
-- Supports English, Bangla, and Arabic.
-- Offers light and dark themes, text sizes, and prayer card artwork.
-- Includes home screen widgets for Android and iPhone.
-- Lets you export and restore your journal and Tasbeeh records.
+<p align="center">
+  <a href="#a-look-inside">A look inside</a> &nbsp;·&nbsp;
+  <a href="#run-it-locally">Run locally</a> &nbsp;·&nbsp;
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-Prayer times are calculated on your device. Your records stay on your device unless you share a backup file. City search and some optional links need internet access.
+## A look inside
 
-Built with Expo, React Native, and TypeScript.
+<p align="center">
+  <img src="docs/assets/prayer-times.png" alt="Prayer times with an illustrated countdown card and daily prayer list" width="32%">
+  <img src="docs/assets/prayer-journal.png" alt="Private prayer journal with daily records and weekly and monthly views" width="32%">
+  <img src="docs/assets/widgets.png" alt="Prayer card, next prayer, day summary, and prayer times widget previews" width="32%">
+</p>
 
-## Run it
+| For your day | For your practice | Make it yours |
+| --- | --- | --- |
+| Prayer times and optional reminders | Private journal with weekly and monthly views | English, বাংলা, and العربية |
+| Qibla compass and prayer calendar | Tasbeeh counter | Light and dark themes, text sizes, and artwork |
+| Android and iPhone home screen widgets | Export and restore your saved records | Device location or manual coordinates |
 
-Install [Node.js 24](https://nodejs.org/) (24.3 or newer) and npm.
+Prayer times are calculated on your device. Your journal and Tasbeeh records stay there unless you share a backup. City search and some optional links need internet access.
+
+## Run it locally
+
+Built with **Expo · React Native · TypeScript**. Use [Node.js 24](https://nodejs.org/) (24.3 or newer) and npm. If you use nvm, run `nvm use` first.
 
 ```sh
 git clone https://github.com/HasanC14/PrayerTime-Mobile-App.git
@@ -31,11 +49,10 @@ cp .env.example .env
 npm run web
 ```
 
-Open the address shown in the terminal. If you use nvm, run `nvm use` first.
+Open the address shown in the terminal. No API key is needed to try the app: use your device's location or enter coordinates. For city search, add your own LocationIQ client key to `.env`. See [configuration](docs/configuration.md).
 
-No API key is needed to try the app. Use your phone's location or enter coordinates. To enable city search, add your own LocationIQ client key to `.env`. See [configuration](docs/configuration.md).
-
-## Run on a phone
+<details>
+<summary><strong>Run on a phone</strong></summary>
 
 ```sh
 npm start
@@ -52,7 +69,12 @@ Android needs Android Studio and an emulator or connected phone. iOS needs macOS
 
 The root `android/` and `ios/` folders are generated. Keep native source changes in `modules/`, `plugins/`, and `app.json`.
 
-## Check your changes
+A web preview does not test phone notifications, sensors, or native widgets.
+
+</details>
+
+<details>
+<summary><strong>Check your changes</strong></summary>
 
 ```sh
 npm run typecheck
@@ -62,7 +84,10 @@ npm test
 
 `npm run check` also runs Expo Doctor and may need internet access. Tests use sample data and do not need API keys.
 
-## Find the code
+</details>
+
+<details>
+<summary><strong>Find your way around the code</strong></summary>
 
 | Folder | What is inside |
 | --- | --- |
@@ -73,18 +98,18 @@ npm test
 | `modules/`, `plugins/`, `src/widgets/` | Native features and widgets |
 | `assets/` | App icons and artwork |
 | `tests/`, `.maestro/` | Automated checks |
-| `docs/` | Setup and technical notes |
+| `docs/` | Setup, technical notes, and README visuals |
 
-Local keys, builds, marketing exports, and review images are ignored by Git.
+Local keys, builds, full marketing exports, and review images are ignored by Git. Selected README visuals are kept in `docs/assets/`.
 
-## Help improve it
+</details>
 
-Ideas, bug reports, translations, and code are welcome. Start with [contributing](CONTRIBUTING.md). Please follow the [code of conduct](CODE_OF_CONDUCT.md). Use [the security policy](SECURITY.md) for private security reports.
+## Help it grow
 
-Before publishing your own version, follow [the fork guide](docs/configuration.md#eas-builds-and-forks). Use your own app identifiers, keys, and signing account.
+Ideas, bug reports, translations, and code are welcome. Start with [contributing](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). For private security reports, follow the [security policy](SECURITY.md).
 
-See [public release steps](docs/public-release.md) before making the repository public. Device checks and remaining app release tasks are in [release readiness](docs/release-readiness.md). A web preview does not test phone notifications, sensors, or native widgets.
+Building your own version? Follow the [fork guide](docs/configuration.md#eas-builds-and-forks) to set up your app identifiers, keys, and signing account. Maintainers can find the [public release steps](docs/public-release.md) and [device checks](docs/release-readiness.md) in the docs.
 
-## License
+---
 
-Project-owned code uses the [MIT license](LICENSE). Fonts, translations, and other third-party material keep their own terms. See [credits and notices](THIRD_PARTY_NOTICES.md).
+Project-owned code is [MIT licensed](LICENSE). Third-party material keeps its own terms; see [credits and notices](THIRD_PARTY_NOTICES.md).
