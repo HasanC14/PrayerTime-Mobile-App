@@ -3,8 +3,8 @@
   <string name="prayertime_hero_description">Your prayer card, with artwork, countdown and the next prayer.</string>
   <string name="prayertime_summary_name">Day summary</string>
   <string name="prayertime_times_name">Prayer times</string>
-  <string name="prayertime_summary_description">Current prayer, Hijri date, sunrise, sunset and fasting times.</string>
-  <string name="prayertime_times_description">All five prayer periods for your day.</string>
+  <string name="prayertime_summary_description">Current prayer, Hijri date, and sunrise/sunset or fasting times.</string>
+  <string name="prayertime_times_description">All five prayer start times for your day.</string>
   <string name="prayertime_widget_name">Next prayer</string>
   <string name="prayertime_widget_description">Your next prayer, its start time, and your saved location. Tap to open PrayerTime.</string>
 </resources>

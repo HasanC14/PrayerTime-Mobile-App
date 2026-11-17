@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Illustrative gallery preview only. The initial/live layout uses calculated data. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="160dp" android:layout_height="160dp"
+    android:src="@drawable/prayertime_next_preview" android:scaleType="fitCenter"
+    android:contentDescription="@string/prayertime_widget_name" />

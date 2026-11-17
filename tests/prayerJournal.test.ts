@@ -119,7 +119,7 @@ test("legacy journal start migrates from its earliest actual entry without chang
 test("invalid start metadata and failed initialization cannot silently reset tracking history", async () => {
   const {repository, storage, data} = fixture();
   data.set(JOURNAL_STARTED_ON_KEY, "broken");
-  await assert.rejects(repository.open("2026-10-24"));
+  assert.deepEqual(await repository.open("2026-10-24"), {days: {}, startedOn: "2026-10-24", startDamaged: true});
   assert.equal(data.get(JOURNAL_STARTED_ON_KEY), "broken");
   data.delete(JOURNAL_STARTED_ON_KEY);
   const unavailable = createPrayerJournalRepository({...storage, setItem: async () => {throw new Error("Disk full");}});

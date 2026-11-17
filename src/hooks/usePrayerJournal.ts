@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PrayerName } from "../types";
 import { canRecordPrayer, prayerJournalRepository, type PrayerJournalDays, type PrayerJournalEntry } from "../services/prayerJournal";
+import {onRecordsChanged} from "../services/recordChanges";
 import { selectionFeedback } from "../utils/feedback";
 
 type Write = { dateKey: string; prayer: PrayerName; entry: PrayerJournalEntry | null } | {dateKey: string; exempt: boolean};
@@ -11,6 +12,7 @@ export function usePrayerJournal(enabled: boolean, dateKey: string | null) {
   const [startedOn, setStartedOn] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [loadIssue, setLoadIssue] = useState(false);
+  const [recoveryIssue, setRecoveryIssue] = useState(false);
   const [saveIssue, setSaveIssue] = useState(false);
   const [loadRevision, setLoadRevision] = useState(0);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -27,6 +29,7 @@ export function usePrayerJournal(enabled: boolean, dateKey: string | null) {
       if (!active) return;
       latest.current = value.days;
       hydrated.current = true;
+      setRecoveryIssue(Boolean(value.damagedDates?.length || value.startDamaged));
       setDays(value.days);setStartedOn(value.startedOn);setReady(true);setLoadIssue(false);
     }).catch(() => { if (active) setLoadIssue(true); });
     return () => { active = false; };
@@ -52,21 +55,25 @@ export function usePrayerJournal(enabled: boolean, dateKey: string | null) {
     }
   }, []);
 
+  useEffect(() => onRecordsChanged(() => {
+    hydrated.current = false; failed.current = null; setSaveIssue(false); setReady(false); setLoadRevision(value => value + 1);
+  }), []);
+
   const toggle = useCallback((dateKey: string, prayer: PrayerName, start: Date | undefined, now: Date, timeZone: string) => {
     if (!enabled || !hydrated.current || pending.current) return;
-    if (latest.current[dateKey]?.exempt) return;
+    if (latest.current[dateKey]?.exempt || latest.current[dateKey]?.unreadable) return;
     const recorded = Boolean(latest.current[dateKey]?.[prayer]);
     if (!canRecordPrayer(start, now, recorded)) return;
     void write({dateKey, prayer, entry: recorded ? null : {completedAt: now.getTime(), timeZone}});
   }, [enabled, write]);
 
   const toggleExempt = useCallback((selectedKey: string) => {
-    if (!enabled || !hydrated.current || pending.current || !dateKey || selectedKey > dateKey) return;
+    if (!enabled || !hydrated.current || pending.current || !dateKey || selectedKey > dateKey || latest.current[selectedKey]?.unreadable) return;
     void write({dateKey: selectedKey, exempt: !latest.current[selectedKey]?.exempt});
   }, [dateKey, enabled, write]);
 
-  return {days, startedOn, ready, loadIssue, saveIssue, busyKey, toggle, toggleExempt,
-    retryLoad: () => setLoadRevision(value => value + 1),
+  return {days, startedOn, ready, loadIssue, saveIssue, recoveryIssue, busyKey, toggle, toggleExempt,
+    retryLoad: () => {hydrated.current = false; setReady(false); setLoadRevision(value => value + 1);},
     retrySave: () => { if (failed.current) void write(failed.current); },
   };
 }

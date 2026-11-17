@@ -5,9 +5,27 @@ import { calculatePrayerCalendar, calculatePrayerDay } from "../src/services/pra
 import { buildHomeWidgetTimeline, buildWidgetTimeline, selectWidgetEntry } from "../src/services/widgetTimeline";
 import { createWidgetPublisher } from "../src/services/widgetPublisher";
 import { getPrayerFocus } from "../src/services/prayerPeriods";
+import { getCurrentPrayerGuidance, getPrayerGuidanceWindows } from "../src/utils/time";
+import {formatPrayerTime, formatPrayerTimeRange} from "../src/utils/time";
+import {PRAYER_NAMES} from "../src/types";
 import type { AppLocation } from "../src/types";
 
 const dhaka: AppLocation = { name: "Dhaka, Bangladesh", lat: 23.8103, lng: 90.4125, countryCode: "BD", timeZone: "Asia/Dhaka", capturedAt: 1, source: "manual" };
+
+test("a delayed widget refresh selects the new period rather than an expired prohibited countdown", () => {
+  const now = new Date("2026-11-04T00:00:00Z");
+  const calendar = calculatePrayerCalendar(dhaka, DEFAULT_SETTINGS, now, 1, 15);
+  const entries = buildHomeWidgetTimeline(calendar, dhaka, {...DEFAULT_SETTINGS, language: "bn"}, now);
+  const day = calendar.find(day => day.dateKey === "2026-11-04")!;
+  for (const window of getPrayerGuidanceWindows(day)) {
+    const late = new Date(window.end.getTime() + 34_000);
+    const hero = selectWidgetEntry(entries, late.getTime())!.hero!;
+    assert.equal(hero.danger, false);
+    assert.ok(hero.target > late.getTime());
+    assert.equal(hero.focusPrayer, getPrayerFocus(late, calendar)!.prayer);
+    assert.equal(getCurrentPrayerGuidance(late, day), null);
+  }
+});
 const now = new Date("2026-10-23T04:00:00Z");
 const calendar = calculatePrayerCalendar(dhaka, DEFAULT_SETTINGS, now, 1, 15);
 
@@ -23,9 +41,26 @@ test("hero widget matches the app's current prayer, deadline, next row and artwo
     assert.equal(props.hero?.target, focus.target.getTime());
     assert.equal(props.hero?.start, focus.windowStart.getTime());
     assert.equal(props.hero?.phaseLabel, "ends in");
+    assert.equal(props.hero?.windowRange, formatPrayerTimeRange(focus.windowStart, focus.target, DEFAULT_SETTINGS.timeFormat, dhaka.timeZone, "en"));
     assert.equal(props.hero?.footerLabel, "Next · Maghrib");
     assert.equal(props.hero?.danger, false);
     assert.equal(entries.at(-1)?.props.hero, undefined);
+  }
+});
+
+test("widget time windows follow the focused interval, locale and time format", () => {
+  const day = calendar.find(day => day.dateKey === "2026-10-23")!;
+  for (const language of ["en", "bn", "ar"] as const) for (const timeFormat of ["12h", "24h"] as const) {
+    const settings = {...DEFAULT_SETTINGS, language, timeFormat};
+    const entries = buildHomeWidgetTimeline(calendar, dhaka, settings, new Date(day.instants.Fajr.getTime() - 1000));
+    for (const entry of entries.filter(entry => entry.props.hero)) {
+      const hero = entry.props.hero!;
+      if (hero.phase === "ends") assert.equal(hero.windowRange, formatPrayerTimeRange(new Date(hero.start), new Date(hero.target), timeFormat, dhaka.timeZone, language));
+      else {
+        assert.equal(hero.windowRange, undefined);
+        assert.equal(hero.targetTime, formatPrayerTime(new Date(hero.target), timeFormat, dhaka.timeZone, language));
+      }
+    }
   }
 });
 
@@ -70,6 +105,18 @@ test("day summary includes the current period, all five ranges and optional fast
   const withoutFasting = buildHomeWidgetTimeline(calendar, dhaka, { ...DEFAULT_SETTINGS, ramadanMode: "off" }, duringAsr)[0].props;
   assert.equal(withoutFasting.summary?.sehri, "");
   assert.equal(withoutFasting.summary?.iftar, "");
+});
+
+test("widget tables supply localized starts without losing the full prayer periods", () => {
+  const day = calendar.find(day => day.dateKey === "2026-10-23")!;
+  for (const language of ["en", "bn", "ar"] as const) for (const timeFormat of ["12h", "24h"] as const) {
+    const settings = {...DEFAULT_SETTINGS, language, timeFormat};
+    const props = buildHomeWidgetTimeline(calendar, dhaka, settings, new Date(day.instants.Asr.getTime() + 1000))[0].props;
+    assert.equal(props.language, language);
+    assert.deepEqual(props.summary?.rows.map(row => row.startTime), PRAYER_NAMES.map(name => formatPrayerTime(day.instants[name], timeFormat, dhaka.timeZone, language)));
+    assert.ok(props.summary?.rows.every(row => row.time.includes("–") && !row.startTime?.includes("–")));
+    assert.equal(props.summary?.rows.filter(row => row.active).length, 1);
+  }
 });
 
 test("detail widgets update at local midnight, sunrise, and after the schedule expires", () => {

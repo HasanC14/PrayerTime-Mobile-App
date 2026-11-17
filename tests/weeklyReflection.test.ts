@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getJournalDayStatus, getJournalPeriodSummary } from "../src/services/journalOverview";
 import { getWeeklyReflection } from "../src/services/weeklyReflection";
-import { PRAYER_PASSAGES } from "../src/content/prayerReflections";
+import { PRAYER_REFLECTIONS } from "../src/content/prayerReflections";
 import type { PrayerJournalDays } from "../src/services/prayerJournal";
 import { PRAYER_NAMES } from "../src/types";
 import { messages } from "../src/i18n/messages";
@@ -57,17 +57,16 @@ test("day status requires a completed day and actual activity in that week", () 
   assert.equal(getJournalDayStatus(days, start, "Fajr", before, now, activeKey, start), "recorded");
 });
 
-test("reflections distinguish starting, rebuilding, and maintaining; meaningful gaps get a prayer tip", () => {
+test("reflections distinguish starting, rebuilding, and maintaining without diagnosing missed salah", () => {
   assert.equal(getWeeklyReflection({}, activeKey, activeKey, activeKey).theme, "starting");
   assert.equal(getWeeklyReflection(completeWeek(), start, activeKey, start).theme, "maintaining");
   const days = completeWeek("Fajr");
   delete days["2026-10-27"].Dhuhr;
   delete days["2026-10-28"].Dhuhr;
-  const reflection = getWeeklyReflection(days, start, activeKey, start);
-  assert.equal(reflection.theme, "consistency");
-  assert.equal(reflection.prayer, "Fajr");
-  assert.equal(reflection.tip, "Prepare before bed and set an alarm for Fajr.");
-  assert.equal(getWeeklyReflection({[start]: {Fajr: entry}}, start, activeKey, start).prayer, undefined);
+  const result = getWeeklyReflection(days, start, activeKey, start);
+  assert.equal(result.theme, "consistency");
+  assert.ok(result.reflection.explanation);
+  assert.ok(result.action);
 });
 
 test("all-exempt weeks show a neutral reflection and exclude every day", () => {
@@ -75,20 +74,23 @@ test("all-exempt weeks show a neutral reflection and exclude every day", () => {
   const reflection = getWeeklyReflection(days, start, activeKey, start);
   assert.equal(reflection.summary.total, 0);
   assert.equal(reflection.summary.missed, 0);
-  assert.equal(reflection.reason, "Exempt days are left out of your prayer totals.");
+  assert.equal(reflection.allExempt, true);
+  assert.notEqual(reflection.reflection.tone, "warning");
+  assert.equal(reflection.reflection.exemptionSafe, true);
 });
 
 test("weekly rotation is stable across reopens and changes in the following week", () => {
   const a = getWeeklyReflection({}, start, activeKey, start);
-  assert.equal(a.passage.id, getWeeklyReflection({}, start, activeKey, start).passage.id);
-  assert.notEqual(a.passage.id, getWeeklyReflection({}, activeKey, "2026-11-09", start).passage.id);
-  for (const passage of PRAYER_PASSAGES) {
-    assert.match(passage.url, /^https:\/\/(quran.com|sunnah.com)\//);
-    assert.ok(passage.reference && passage.attribution && passage.themes.length);
+  assert.equal(a.reflection.id, getWeeklyReflection({}, start, activeKey, start).reflection.id);
+  assert.notEqual(a.reflection.id, getWeeklyReflection({}, activeKey, "2026-11-09", start).reflection.id);
+  for (const reflection of PRAYER_REFLECTIONS) {
+    assert.match(reflection.source.url, /^https:\/\/quran.com\//);
+    assert.ok(reflection.source.reference && reflection.source.attribution && reflection.themes.length);
   }
   for (const reflection of [a, getWeeklyReflection(completeWeek(), start, activeKey, start), getWeeklyReflection({[start]: {Fajr: entry}}, start, activeKey, start)]) {
-    assert.ok(messages[reflection.reason]);
-    assert.ok(messages[reflection.tip]);
+    for (const field of [reflection.reflection.title, reflection.reflection.explanation, reflection.reflection.context, reflection.action]) {
+      assert.ok(messages[field], field);
+    }
   }
 });
 
@@ -100,4 +102,52 @@ test("activity in a week crossing months gives the same missed status in both re
   assert.equal(monthly.unlogged, 0);
   assert.equal(weekly.missed, 34);
   assert.equal(getJournalDayStatus(days, "2026-11-01", "Fajr", now, now, activeKey, start), "missed");
+});
+
+test("the fifty-four reflections have distinct sources and fully localized explanations, separate from excerpts", () => {
+  assert.equal(PRAYER_REFLECTIONS.length, 54);
+  assert.equal(new Set(PRAYER_REFLECTIONS.map(item => item.id)).size, 54);
+  assert.equal(new Set(PRAYER_REFLECTIONS.map(item => item.source.reference)).size, 54);
+  for (const item of PRAYER_REFLECTIONS) {
+    assert.ok(item.source.excerpt.split(/\s+/).length <= 25, item.id);
+    assert.match(item.source.tafsirUrl, /^https:\/\/quran.com\/\d+:\d+\/tafsirs\/en-tafisr-ibn-kathir$/);
+    assert.doesNotMatch([item.title, item.explanation, item.action, item.context, item.source.excerpt].join(" "), /\bhell\b/i);
+    for (const field of [item.title, item.explanation, item.action, item.context]) {
+      assert.ok(messages[field]?.every(value => value.trim() && value !== field), field);
+    }
+  }
+});
+
+test("empty and sparse histories never escalate to a warning across a full year", () => {
+  for (let week = 0; week < 53; week++) {
+    const date = new Date("2026-01-05T12:00:00Z");
+    date.setUTCDate(date.getUTCDate() + week * 7);
+    const anchor = date.toISOString().slice(0, 10);
+    date.setUTCDate(date.getUTCDate() + 7);
+    const active = date.toISOString().slice(0, 10);
+    for (const days of [{}, {[anchor]: {Fajr: entry}}]) {
+      const result = getWeeklyReflection(days, anchor, active, anchor);
+      assert.notEqual(result.reflection.tone, "warning");
+    }
+  }
+});
+
+test("all fifty-four lessons can be selected without repeats across a full collection", () => {
+  let history = undefined;
+  const selected = new Set<string>();
+  for (let week = 0; week < 54; week++) {
+    const date = new Date("2026-01-05T12:00:00Z");
+    date.setUTCDate(date.getUTCDate() + week * 7);
+    const anchor = date.toISOString().slice(0, 10);
+    const days: PrayerJournalDays = {};
+    for (let day = 0; day < 7; day++) {
+      days[date.toISOString().slice(0, 10)] = Object.fromEntries(PRAYER_NAMES.map(name => [name, entry]));
+      date.setUTCDate(date.getUTCDate() + 1);
+    }
+    const result = getWeeklyReflection(days, anchor, date.toISOString().slice(0, 10), anchor, history);
+    assert.equal(selected.has(result.reflection.id), false, result.reflection.id);
+    selected.add(result.reflection.id);
+    history = result.history;
+  }
+  assert.deepEqual([...selected].sort(), PRAYER_REFLECTIONS.map(item => item.id).sort());
 });

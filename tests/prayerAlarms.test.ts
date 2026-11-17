@@ -184,5 +184,5 @@ test("stored per-prayer alarms migrate to the global lead time", () => {
 test("appearance settings accept dark mode and repair unknown values", () => {
   assert.equal(validateSettings({ ...DEFAULT_SETTINGS, themeMode: "dark" }).themeMode, "dark");
   assert.equal(validateSettings({ ...DEFAULT_SETTINGS, themeMode: "classic-dark" }).themeMode, "classic-dark");
-  assert.equal(validateSettings({ ...DEFAULT_SETTINGS, themeMode: "neon" }).themeMode, "system");
+  assert.equal(validateSettings({ ...DEFAULT_SETTINGS, themeMode: "neon" }).themeMode, "light");
 });

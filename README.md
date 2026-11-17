@@ -1,71 +1,90 @@
 # PrayerTime
 
-A mobile prayer companion built with Expo, React Native, and TypeScript. Prayer times are calculated on the device, with a private Salah journal, weekly reflections, Qibla direction, Tasbeeh, a calendar, and home screen widgets.
+A simple prayer app. No ads. No account needed.
 
-- English, Bangla, and Arabic, including right-to-left layouts.
-- Local prayer calculations with configurable methods and reminders.
-- Prayer journal with weekly/monthly history, exempt days, and sourced reflections.
-- Light and dark appearances, adjustable text sizes, and prayer card artwork.
-- Android native reminder controls and widgets; iOS widget integration.
+[Get it on Google Play](https://play.google.com/store/apps/details?id=com.hasanbuilds.prayertime)
 
-No account is required. Journal entries stay on the device; backup and sync are not implemented. Location search and optional external links need internet access. Native behavior varies by platform and must be checked on a device.
+## What it does
 
-## Get started
+- Shows prayer times and optional reminders.
+- Helps you find the Qibla direction.
+- Keeps a private prayer journal, with weekly and monthly views.
+- Includes a Tasbeeh counter and a prayer calendar.
+- Supports English, Bangla, and Arabic.
+- Offers light and dark themes, text sizes, and prayer card artwork.
+- Includes home screen widgets for Android and iPhone.
+- Lets you export and restore your journal and Tasbeeh records.
 
-Use **Node.js 24** (24.3 or newer) and npm. The repository includes a lockfile; use `npm ci` for reproducible installs.
+Prayer times are calculated on your device. Your records stay on your device unless you share a backup file. City search and some optional links need internet access.
+
+Built with Expo, React Native, and TypeScript.
+
+## Run it
+
+Install [Node.js 24](https://nodejs.org/) (24.3 or newer) and npm.
 
 ```sh
 git clone https://github.com/HasanC14/PrayerTime-Mobile-App.git
 cd PrayerTime-Mobile-App
-nvm use
 npm ci
 cp .env.example .env
 npm run web
 ```
 
-`nvm use` is optional if Node 24 is already installed. Open the local URL printed by Expo. You can explore the app without an API key using phone location or manual coordinates. An optional LocationIQ key enables city search and reverse geocoding. See [configuration](docs/configuration.md).
+Open the address shown in the terminal. If you use nvm, run `nvm use` first.
 
-For mobile previews, run `npm start` and follow Expo's instructions. Expo Go can preview supported screens, but it does not include this project's custom native modules. Android widgets, exact-alarm access, and iOS widgets require a native build.
+No API key is needed to try the app. Use your phone's location or enter coordinates. To enable city search, add your own LocationIQ client key to `.env`. See [configuration](docs/configuration.md).
+
+## Run on a phone
 
 ```sh
-npm run android  # Android SDK + emulator or connected device required
-npm run ios      # macOS + Xcode required
+npm start
 ```
 
-These commands generate local native projects. Keep changes in `modules/`, `plugins/`, and `app.json`; generated root `android/` and `ios/` directories are ignored.
+Expo Go can show supported screens. Widgets and custom reminder controls need a native build:
 
-## Checks
+```sh
+npm run android
+npm run ios
+```
+
+Android needs Android Studio and an emulator or connected phone. iOS needs macOS and Xcode. Rebuild after changing native modules or plugins.
+
+The root `android/` and `ios/` folders are generated. Keep native source changes in `modules/`, `plugins/`, and `app.json`.
+
+## Check your changes
 
 ```sh
 npm run typecheck
 npm run lint
 npm test
-npm run check
 ```
 
-`npm run check` runs the first three checks plus Expo Doctor, which may need internet access. CI runs these checks and exports the web app. Tests use local fixtures and mocked services; no production credentials are required. See [contributing](CONTRIBUTING.md) for device checks and [dependency maintenance](docs/dependencies.md) for outstanding audit findings.
+`npm run check` also runs Expo Doctor and may need internet access. Tests use sample data and do not need API keys.
 
-## Repository map
+## Find the code
 
-| Path | Purpose |
+| Folder | What is inside |
 | --- | --- |
-| `src/screens/`, `src/components/` | App screens and shared UI |
-| `src/hooks/`, `src/services/` | App state, calculations, storage, reminders, and widgets |
-| `src/content/` | Sourced prayer reflection passages |
-| `src/i18n/` | English, Bangla, and Arabic translations |
-| `src/widgets/` | iOS widget layouts |
-| `modules/` | Local Expo native modules, including Android widgets |
-| `plugins/` | Expo config plugins applied during native generation |
-| `assets/` | Bundled icons, artwork, and splash images |
-| `tests/` | Automated behavior and regression tests |
-| `docs/` | Architecture and configuration guides |
+| `src/screens/` | App screens |
+| `src/components/` | Shared UI |
+| `src/hooks/`, `src/services/` | App logic, storage, prayer times, and reminders |
+| `src/i18n/`, `src/content/` | Translations and prayer reflections |
+| `modules/`, `plugins/`, `src/widgets/` | Native features and widgets |
+| `assets/` | App icons and artwork |
+| `tests/`, `.maestro/` | Automated checks |
+| `docs/` | Setup and technical notes |
 
-Marketing projects, review screenshots, build outputs, local environment files, and signing credentials are excluded from Git. They are not required to build the app.
+Local keys, builds, marketing exports, and review images are ignored by Git.
 
-## Contribute
+## Help improve it
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture guide](docs/architecture.md), and the [code of conduct](CODE_OF_CONDUCT.md). Use GitHub issues for bugs and feature proposals. Report sensitive issues using [SECURITY.md](SECURITY.md).
+Ideas, bug reports, translations, and code are welcome. Start with [contributing](CONTRIBUTING.md). Please follow the [code of conduct](CODE_OF_CONDUCT.md). Use [the security policy](SECURITY.md) for private security reports.
 
-## License and credits
+Before publishing your own version, follow [the fork guide](docs/configuration.md#eas-builds-and-forks). Use your own app identifiers, keys, and signing account.
 
-Project-owned code is licensed under [MIT](LICENSE). Dependencies and third-party material retain their own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The PrayerTime name and logo do not imply endorsement of forks.
+See [public release steps](docs/public-release.md) before making the repository public. Device checks and remaining app release tasks are in [release readiness](docs/release-readiness.md). A web preview does not test phone notifications, sensors, or native widgets.
+
+## License
+
+Project-owned code uses the [MIT license](LICENSE). Fonts, translations, and other third-party material keep their own terms. See [credits and notices](THIRD_PARTY_NOTICES.md).

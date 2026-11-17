@@ -21,7 +21,8 @@ export function formatPrayerTimeRange(
   end: Date | undefined,
   format: TimeFormat,
   timeZone: string,
-  language: AppLanguage = "en"
+  language: AppLanguage = "en",
+  options: { omitDayPeriod?: boolean } = {}
 ): string {
   if (
     !start ||
@@ -54,6 +55,11 @@ export function formatPrayerTimeRange(
       .map((part) => part.value)
       .join("")
   );
+
+  if (options.omitDayPeriod) {
+    const compactEnd = normalize(endParts.filter(part => part.type !== "dayPeriod").map(part => part.value).join(""));
+    return `${compactStart} – ${compactEnd}`;
+  }
 
   return startPeriod && startPeriod === endPeriod
     ? `${compactStart} – ${endText}`

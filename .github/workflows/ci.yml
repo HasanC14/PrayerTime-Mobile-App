@@ -27,6 +27,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Check high and critical dependency advisories
+        run: npm audit --audit-level=high
       - run: npm run check
       - name: Export web app
         run: npx expo export --platform web

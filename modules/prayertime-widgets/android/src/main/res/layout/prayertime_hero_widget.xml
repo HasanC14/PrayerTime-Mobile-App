@@ -1,14 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/prayertime_widget_background" android:clipToOutline="true">
-<ImageView android:id="@+id/widget_artwork" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:importantForAccessibility="no" />
-<LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:padding="18dp" android:orientation="vertical" android:gravity="center_vertical">
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-<TextView android:id="@+id/widget_prayer" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="PrayerTime" android:textSize="24sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:textColor="#24143A" />
-<TextView android:id="@+id/widget_phase" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#6F4B94" android:maxLines="1" />
-</LinearLayout>
-<Chronometer android:id="@+id/widget_countdown" android:layout_width="match_parent" android:layout_height="52dp" android:textSize="36sp" android:textStyle="bold" android:textColor="#24143A" android:format="%s" android:maxLines="1" />
-<TextView android:id="@+id/widget_target" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#6F4B94" android:maxLines="1" android:ellipsize="end" />
-<ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="10dp" android:progressTint="#6F4B94" android:progressBackgroundTint="#60FFFFFF" android:indeterminate="false" android:max="1000" />
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
-<TextView android:id="@+id/widget_footer" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#24143A" android:maxLines="1" android:ellipsize="end" />
-<TextView android:id="@+id/widget_footer_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textStyle="bold" android:textColor="#24143A" android:maxLines="1" />
-</LinearLayout></LinearLayout></FrameLayout>
+    <ImageView android:id="@+id/widget_artwork" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:id="@+id/widget_content" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp">
+        <TextView android:id="@+id/widget_prayer" style="@style/PrayerTimeWidgetText" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="22sp" android:text="PrayerTime" android:textStyle="bold" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="22sp" android:autoSizeStepGranularity="1sp" />
+        <Chronometer android:id="@+id/widget_countdown" android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="2dp" android:gravity="start|center_vertical" android:textSize="37sp" android:textStyle="bold" android:fontFamily="sans-serif-medium" android:textColor="#24143A" android:maxLines="1" android:fontFeatureSettings="tnum" android:includeFontPadding="false" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="24sp" android:autoSizeMaxTextSize="37sp" android:autoSizeStepGranularity="1sp" />
+        <TextView android:id="@+id/widget_window" style="@style/PrayerTimeWidgetText" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="10sp" android:text="" android:layout_marginTop="2dp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="9sp" android:autoSizeMaxTextSize="10sp" android:autoSizeStepGranularity="1sp" />
+        <FrameLayout android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+        <ImageView android:id="@+id/widget_progress" android:layout_width="match_parent" android:layout_height="3dp" android:scaleType="fitXY" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal" android:gravity="center_vertical">
+            <TextView android:id="@+id/widget_footer" style="@style/PrayerTimeWidgetText" android:layout_width="0dp" android:layout_height="wrap_content" android:textSize="11sp" android:text="" android:layout_weight="1" />
+            <TextView android:id="@+id/widget_footer_time" style="@style/PrayerTimeWidgetText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" android:text="" android:layout_marginStart="8dp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

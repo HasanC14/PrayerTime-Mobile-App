@@ -67,17 +67,19 @@ export function CalendarScreen({
       method: settings.method,
       school: settings.school,
       midnightMode: settings.midnightMode,
+      hijriAdjustmentDays: settings.hijriAdjustmentDays,
       latitudeAdjustmentMethod: settings.latitudeAdjustmentMethod,
       timeFormat: "12h",
       ramadanMode: "off",
       themeMode: "system",
       heroArtwork: DEFAULT_SETTINGS.heroArtwork,
       notificationsEnabled: false,
+      prayerStartNotificationsEnabled: false,
       prayerTrackingEnabled: false,
       alarmLeadMinutes: DEFAULT_SETTINGS.alarmLeadMinutes,
       prayerAlarmMinutes: DEFAULT_PRAYER_ALARMS
     }),
-    [settings.latitudeAdjustmentMethod, settings.method, settings.midnightMode, settings.school]
+    [settings.latitudeAdjustmentMethod, settings.method, settings.midnightMode, settings.school, settings.hijriAdjustmentDays]
   );
 
   const calculatedDays = useMemo(() => {
@@ -213,7 +215,7 @@ export function CalendarScreen({
                   <View style={styles.prayerCopy}>
                     <Text style={styles.prayerName}>{name}</Text>
                     {name === "Sunrise" ? <Text style={styles.eventText}>Solar event</Text> : null}
-                    {compact ? <Text style={[styles.prayerTime, { marginTop: 4 }]}>{name === "Sunrise"
+                    {compact ? <Text style={[styles.prayerTime, styles.compactTime]}>{name === "Sunrise"
                       ? formatPrayerTime(selectedDay.instants.Sunrise, settings.timeFormat, location.timeZone, language)
                       : formatPrayerTimeRange(period?.start, period?.end, settings.timeFormat, location.timeZone, language)}</Text> : null}
                   </View>
@@ -282,10 +284,11 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
   selectedHijri: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 12, marginTop: 2 },
   scheduleCard: { overflow: "hidden" },
   prayerRow: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: spacing.lg },
-  prayerRowCompact: {paddingVertical: 8},
+  prayerRowCompact: {paddingVertical: 14},
   prayerBorder: { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
   prayerIcon: { alignItems: "center", height: 32, justifyContent: "center", marginEnd: spacing.md, width: 32 },
-  prayerCopy: { flex: 1 },
+  prayerCopy: { flex: 1, minWidth: 0 },
+  compactTime: {marginTop: 8, fontFamily: "BricolageGrotesque_500Medium", fontWeight: "500", fontSize: 14, lineHeight: 25},
   prayerName: { color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 14, fontWeight: "600" },
   eventText: { color: colors.inkSoft, fontFamily: "BricolageGrotesque_400Regular", fontSize: 9, marginTop: 1 },
   prayerTimeRange: { alignItems: "flex-end", minWidth: 112 },

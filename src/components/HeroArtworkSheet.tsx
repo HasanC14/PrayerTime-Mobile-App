@@ -22,7 +22,7 @@ export function HeroArtworkSheet({ visible, value, onSelect, onClose }: {
 
   return <BottomSheetModal visible={visible} closeLabel="Close Prayer card artwork" onClose={onClose}
     sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-    <SheetHeader title="Prayer card artwork" subtitle="Choose the illustration on your prayer card." onClose={onClose} />
+    <SheetHeader title="Prayer card artwork" onClose={onClose} />
     <ScrollView style={styles.scroll} contentContainerStyle={styles.options} showsVerticalScrollIndicator={false}>
       {HERO_ARTWORK_OPTIONS.map(option => {
         const selected = value === option.id;

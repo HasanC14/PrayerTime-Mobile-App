@@ -26,6 +26,6 @@ Expo Go and web previews do not verify custom Android reminder permissions or wi
 
 When distributing a fork, replace the EAS project ID in `app.json` with your own project configuration. Set your own Android package, iOS bundle identifier, URL scheme, widget bundle identifier, and app-group identifier. Keep related iOS app/widget identifiers consistent. Use your own signing credentials. These identifiers are public configuration, not credentials.
 
-For updates to the existing PrayerTime Play Store app, preserve the application identity and signing setup. Increment the Android version code through the existing release workflow. Install over the previous build to test local journal compatibility; do not uninstall or clear storage. The app currently disables Android backup and does not provide journal export or cloud sync.
+For updates to the existing PrayerTime Play Store app, preserve the application identity and signing setup. Increment the Android version code through the existing release workflow. Install over the previous build to test local journal compatibility; do not uninstall or clear storage. Android system backup is disabled. Users can export and restore journal and Tasbeeh records from Settings → Saved records. Backup files do not include settings, location, or notification schedules. There is no automatic cloud sync.
 
 `.easignore` controls the native build archive separately from `.gitignore`; keep shared exclusions aligned. Source under `modules/`, `plugins/`, and `assets/` must remain available to builds.

@@ -17,7 +17,7 @@ export function PrivacySheet({ visible, onClose }: { visible: boolean; onClose: 
         <Text style={styles.body}>PrayerTime uses your location, with your permission, to calculate prayer times and Qibla direction. Automatic location updates run while you use the app and stop in the background. You can choose a city manually instead.</Text>
         <Text style={styles.body}>Coordinates are sent to LocationIQ to find a city name. Manual city searches are also sent to LocationIQ. Prayer calculations run on your phone and work offline once a location is selected. City names and search need an internet connection.</Text>
         <Text style={styles.body}>Your chosen location, alarm preferences, and settings are saved on this device. Uninstalling the app clears this local data. PrayerTime does not require an account.</Text>
-        <Text style={styles.body}>Prayer journal entries are saved only on this device. Backup & sync is not available yet.</Text>
+        <Text style={styles.body}>Prayer journal entries stay on this device. You can export a private backup from Saved records. Backups are not encrypted; share them only with people you trust. There is no automatic cloud sync.</Text>
         <Text style={styles.body}>Notification permission is optional and is used for the prayer reminders you enable. Your phone’s notification and battery settings can affect their delivery.</Text>
         <View style={styles.actions}>
           {policyUrl && /^https:\/\//i.test(policyUrl) ? <AppButton label="Read privacy policy" variant="secondary" onPress={() => void Linking.openURL(policyUrl).catch(() => undefined)} /> : null}

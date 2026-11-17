@@ -84,6 +84,7 @@ test("cancellation failures remain tracked and are reported for retry", async ()
 
 test("unreadable saved IDs do not prevent disabling metadata-owned prayer reminders", async () => {
   const h = harness(["prayer-reminder"]);
+  h.pending.set("start-orphan", {identifier: "start-orphan", content: {data: {kind: "prayer-start-alarm"}}});
   h.adapter.savedIds = async () => { throw new Error("Storage unavailable"); };
   h.pending.set("other", { identifier: "other", content: { data: { kind: "other-feature" } } });
   await syncPrayerReminders([], h.adapter);

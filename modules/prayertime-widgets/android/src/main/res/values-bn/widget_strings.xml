@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="prayertime_hero_name">নামাজের কার্ড</string>
+  <string name="prayertime_hero_description">ছবিসহ নামাজের কাউন্টডাউন এবং পরবর্তী নামাজ।</string>
+  <string name="prayertime_summary_name">দিনের সারাংশ</string>
+  <string name="prayertime_times_name">নামাজের সময়</string>
+  <string name="prayertime_summary_description">বর্তমান নামাজ, হিজরি তারিখ ও সূর্যোদয়/সূর্যাস্ত বা সেহরি/ইফতারের সময়।</string>
+  <string name="prayertime_times_description">আজকের পাঁচ ওয়াক্ত নামাজ শুরুর সময়।</string>
+  <string name="prayertime_widget_name">পরবর্তী নামাজ</string>
+  <string name="prayertime_widget_description">পরবর্তী নামাজ, শুরুর সময় ও সংরক্ষিত অবস্থান। PrayerTime খুলতে ট্যাপ করুন।</string>
+</resources>

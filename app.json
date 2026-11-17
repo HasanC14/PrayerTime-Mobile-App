@@ -41,7 +41,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "PrayerTime uses your location to calculate accurate prayer times for your current city."
+          "locationWhenInUsePermission": "PrayerTime uses your location to calculate accurate prayer times for your current city.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false
         }
       ],
       [
@@ -93,7 +95,7 @@
             {
               "name": "DaySummary",
               "displayName": "Day summary",
-              "description": "Current prayer, Hijri date, sunrise, sunset and fasting times.",
+              "description": "Current prayer, Hijri date, and sunrise/sunset or fasting times.",
               "ios": {
                 "supportedFamilies": [
                   "systemMedium"
@@ -104,7 +106,7 @@
             {
               "name": "PrayerTimes",
               "displayName": "Prayer times",
-              "description": "All five prayer periods for your day.",
+              "description": "All five prayer start times for your day.",
               "ios": {
                 "supportedFamilies": [
                   "systemLarge"
@@ -115,8 +117,11 @@
           ]
         }
       ],
+      "./plugins/withWidgetLayoutDirection",
       "expo-asset",
-      "./plugins/withAndroidReleaseOptimization"
+      "./plugins/withAndroidReleaseOptimization",
+      "expo-background-task",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

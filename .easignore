@@ -69,3 +69,16 @@ Desktop.ini
 /.github/
 /docs/
 /tests/
+
+# Local test reports, crash dumps, and release archives
+/playwright-report/
+/test-results/
+/maestro-artifacts/
+*.heapdump
+*.cpuprofile
+*.trace
+/PrayerTime-Google-Play-Assets-*.zip
+
+/native-test-results.xml
+__pycache__/
+*.py[cod]

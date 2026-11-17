@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import {onRecordsChanged} from "../services/recordChanges";
 import { AppState } from "react-native";
 import { EMPTY_TASBEEH, tasbeehReducer, TASBEEH_PRESETS } from "../services/tasbeeh";
 import { loadTasbeehState, saveTasbeehState } from "../services/storage";
@@ -31,10 +32,14 @@ export function useTasbeeh() {
     if (!ready) return;
     let active = true;
     const timer = setTimeout(() => {
+      if (!hydrated.current) return;
       void saveTasbeehState(state).then(() => { if (active) setSaveIssue(false); }).catch(() => { if (active) setSaveIssue(true); });
     }, 150);
     return () => { active = false; clearTimeout(timer); };
   }, [ready, state]);
+  useEffect(() => onRecordsChanged(() => {
+    hydrated.current = false; setReady(false); setLoadRevision(value => value + 1);
+  }), []);
   const selected = [...TASBEEH_PRESETS, ...state.custom].find(item => item.id === state.selectedId) ?? TASBEEH_PRESETS[0];
   return { state, dispatch, selected, count: state.counts[selected.id] ?? 0, ready, saveIssue, loadIssue, retryLoad: () => setLoadRevision(current => current + 1) };
 }

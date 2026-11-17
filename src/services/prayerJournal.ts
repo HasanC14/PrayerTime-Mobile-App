@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_NAMES, type PrayerName } from "../types";
 
 export interface PrayerJournalEntry { completedAt: number; timeZone: string; }
-export type PrayerJournalDay = Partial<Record<PrayerName, PrayerJournalEntry>> & {exempt?: boolean};
+export type PrayerJournalDay = Partial<Record<PrayerName, PrayerJournalEntry>> & {exempt?: boolean; unreadable?: boolean};
 export type PrayerJournalDays = Record<string, PrayerJournalDay>;
 export const JOURNAL_PREFIX = "@PrayerTime:v2:prayerJournal:";
 export const JOURNAL_STARTED_ON_KEY = "@PrayerTime:v2:prayerJournalStartedOn";
@@ -25,7 +25,7 @@ export function canRecordPrayer(start: Date | undefined, now: Date, recorded: bo
   return recorded || Boolean(start && Number.isFinite(start.getTime()) && start <= now);
 }
 
-function readDay(value: string | null): PrayerJournalDay {
+export function readJournalDay(value: string | null): PrayerJournalDay {
   if (value === null) return {};
   const data = JSON.parse(value);
   if (!data || data.version !== 1 || !data.entries || typeof data.entries !== "object" || Array.isArray(data.entries)) throw new Error("Invalid prayer journal");
@@ -64,29 +64,56 @@ export function createPrayerJournalRepository(storage: JournalStorage) {
   async function readDays(): Promise<PrayerJournalDays> {
     const keys = (await storage.getAllKeys()).filter(key => key.startsWith(JOURNAL_PREFIX) && isJournalDateKey(key.slice(JOURNAL_PREFIX.length)));
     const entries = keys.length ? await storage.multiGet(keys) : [];
-    return Object.fromEntries(entries.map(([key, value]) => [key.slice(JOURNAL_PREFIX.length), readDay(value)]));
+    return Object.fromEntries(entries.map(([key, value]) => [key.slice(JOURNAL_PREFIX.length), readJournalDay(value)]));
   }
   return {
+    withStorageLock: enqueue,
+    recover(): Promise<number> {
+      return enqueue(async () => {
+        const keys = (await storage.getAllKeys()).filter(key => key === JOURNAL_STARTED_ON_KEY || key.startsWith(JOURNAL_PREFIX));
+        let count = 0;
+        for (const key of keys) {
+          const raw = await storage.getItem(key);
+          if (raw === null) continue;
+          try {
+            if (key === JOURNAL_STARTED_ON_KEY) {if (!isJournalDateKey(raw)) throw new Error();}
+            else readJournalDay(raw);
+          } catch {
+            await storage.setItem(`@PrayerTime:v2:recovery:journal:${Date.now()}:${encodeURIComponent(key)}`, raw);
+            await storage.removeItem(key); count++;
+          }
+        }
+        return count;
+      });
+    },
     load(): Promise<PrayerJournalDays> {
       return enqueue(readDays);
     },
-    open(dateKey: string): Promise<{days: PrayerJournalDays; startedOn: string}> {
+    open(dateKey: string): Promise<{days: PrayerJournalDays; startedOn: string; damagedDates?: string[]; startDamaged?: boolean}> {
       return enqueue(async () => {
         if (!isJournalDateKey(dateKey)) throw new Error("Invalid journal start date");
-        const days = await readDays();
+        const keys = (await storage.getAllKeys()).filter(key => key.startsWith(JOURNAL_PREFIX) && isJournalDateKey(key.slice(JOURNAL_PREFIX.length)));
+        const entries = keys.length ? await storage.multiGet(keys) : [];
+        const days: PrayerJournalDays = {};
+        const damagedDates: string[] = [];
+        for (const [key, raw] of entries) {
+          const date = key.slice(JOURNAL_PREFIX.length);
+          try {days[date] = readJournalDay(raw);}
+          catch {days[date] = {unreadable: true}; damagedDates.push(date);}
+        }
         const savedStart = await storage.getItem(JOURNAL_STARTED_ON_KEY);
-        if (savedStart !== null && !isJournalDateKey(savedStart)) throw new Error("Invalid journal start date");
-        const firstEntry = Object.keys(days).filter(key => days[key]?.exempt || journalCount(days[key]) > 0).sort()[0];
-        const startedOn = savedStart ?? firstEntry ?? dateKey;
+        const startDamaged = savedStart !== null && !isJournalDateKey(savedStart);
+        const firstEntry = Object.keys(days).filter(key => !days[key].unreadable && (days[key]?.exempt || journalCount(days[key]) > 0)).sort()[0];
+        const startedOn = (!startDamaged ? savedStart : null) ?? firstEntry ?? dateKey;
         if (savedStart === null) await storage.setItem(JOURNAL_STARTED_ON_KEY, startedOn);
-        return {days, startedOn};
+        return {days, startedOn, ...(damagedDates.length ? {damagedDates} : {}), ...(startDamaged ? {startDamaged: true} : {})};
       });
     },
     setExempt(dateKey: string, exempt: boolean): Promise<PrayerJournalDay> {
       return enqueue(async () => {
         if (!isJournalDateKey(dateKey)) throw new Error("Invalid journal date");
         const key = JOURNAL_PREFIX + dateKey;
-        const day = readDay(await storage.getItem(key));
+        const day = readJournalDay(await storage.getItem(key));
         if (exempt) day.exempt = true;
         else delete day.exempt;
         if (day.exempt || journalCount(day)) await storage.setItem(key, serializeDay(day));
@@ -98,9 +125,9 @@ export function createPrayerJournalRepository(storage: JournalStorage) {
       return enqueue(async () => {
         if (!isJournalDateKey(dateKey) || !PRAYER_NAMES.includes(prayer)) throw new Error("Invalid prayer journal selection");
         const key = JOURNAL_PREFIX + dateKey;
-        const day = readDay(await storage.getItem(key));
+        const day = readJournalDay(await storage.getItem(key));
         if (day.exempt) throw new Error("Remove the day exemption before recording prayers");
-        if (entry) day[prayer] = readDay(JSON.stringify({version: 1, entries: {[prayer]: entry}}))[prayer];
+        if (entry) day[prayer] = readJournalDay(JSON.stringify({version: 1, entries: {[prayer]: entry}}))[prayer];
         else delete day[prayer];
         if (day.exempt || journalCount(day)) await storage.setItem(key, serializeDay(day));
         else await storage.removeItem(key);

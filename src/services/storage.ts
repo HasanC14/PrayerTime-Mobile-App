@@ -2,6 +2,8 @@ import { validateTasbeehState, type TasbeehState } from "./tasbeeh";
 import { normalizeTextScale } from "../typography";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import tzLookup from "tz-lookup";
+import {recordRevision} from "./recordChanges";
+import { archiveDamagedValues, readSavedObject } from "./recoverableStorage";
 
 import {
   DEFAULT_ALARM_LEAD_MINUTES,
@@ -101,6 +103,7 @@ export function validateSettings(value: unknown): AppSettings {
   ) as AppSettings["prayerAlarmMinutes"];
 
   return {
+    hijriAdjustmentDays: typeof candidate.hijriAdjustmentDays === "number" && Number.isInteger(candidate.hijriAdjustmentDays) && Math.abs(candidate.hijriAdjustmentDays) <= 2 ? candidate.hijriAdjustmentDays : 0,
     textScale: normalizeTextScale(candidate.textScale),
     heroArtwork: candidate.heroArtwork === "skyline" || candidate.heroArtwork === "moonlit" || candidate.heroArtwork === "serenity"
       ? candidate.heroArtwork : DEFAULT_SETTINGS.heroArtwork,
@@ -128,9 +131,11 @@ export function validateSettings(value: unknown): AppSettings {
           : "auto",
     themeMode:
       candidate.themeMode === "light" || candidate.themeMode === "dark" || candidate.themeMode === "classic-dark" || candidate.themeMode === "system"
+      || candidate.themeMode === "sand" || candidate.themeMode === "rose" || candidate.themeMode === "midnight-blue"
         ? candidate.themeMode
-        : "system",
+        : DEFAULT_SETTINGS.themeMode,
     notificationsEnabled: candidate.notificationsEnabled === true,
+    prayerStartNotificationsEnabled: candidate.prayerStartNotificationsEnabled === true,
     prayerTrackingEnabled: candidate.prayerTrackingEnabled === true,
     alarmLeadMinutes,
     prayerAlarmMinutes
@@ -178,7 +183,7 @@ export function validateLocation(value: unknown): AppLocation | null {
 
 function enqueueWrite(operation: () => Promise<void>): Promise<void> {
   const next = writeQueue.then(operation, operation);
-  writeQueue = next.catch(() => undefined);
+  writeQueue = next.then(() => undefined, () => undefined);
   return next;
 }
 
@@ -196,8 +201,8 @@ export async function loadPersistedState(): Promise<{
   ]);
   const values = new Map(entries);
 
-  const settingsValue = parseJson(values.get(KEYS.settings) ?? values.get(`${LEGACY_PREFIX}settings`) ?? null);
-  const locationValue = parseJson(values.get(KEYS.location) ?? values.get(`${LEGACY_PREFIX}location`) ?? null);
+  const settingsValue = readSavedObject(values.get(KEYS.settings) ?? values.get(`${LEGACY_PREFIX}settings`) ?? null, KEYS.settings);
+  const locationValue = readSavedObject(values.get(KEYS.location) ?? values.get(`${LEGACY_PREFIX}location`) ?? null, KEYS.location);
 
   return {
     settings: validateSettings(settingsValue),
@@ -207,13 +212,18 @@ export async function loadPersistedState(): Promise<{
 }
 
 export function saveSettings(settings: AppSettings): Promise<void> {
-  return enqueueWrite(() => AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings)));
+  return enqueueWrite(async () => {
+    readSavedObject(await AsyncStorage.getItem(KEYS.settings), KEYS.settings);
+    await AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings));
+  });
 }
 
 export function saveLocation(location: AppLocation | null): Promise<void> {
-  return enqueueWrite(() =>
-    location ? AsyncStorage.setItem(KEYS.location, JSON.stringify(location)) : AsyncStorage.removeItem(KEYS.location)
-  );
+  return enqueueWrite(async () => {
+    readSavedObject(await AsyncStorage.getItem(KEYS.location), KEYS.location);
+    if (location) await AsyncStorage.setItem(KEYS.location, JSON.stringify(location));
+    else await AsyncStorage.removeItem(KEYS.location);
+  });
 }
 
 // Retired history keys are the only data removed. Cleanup is optional and
@@ -242,8 +252,28 @@ export function saveNotificationSetupSeen(): Promise<void> {
 }
 
 export async function loadTasbeehState() {
-  return validateTasbeehState(parseJson(await AsyncStorage.getItem(`${V2_PREFIX}tasbeeh`)));
+  return validateTasbeehState(readSavedObject(await AsyncStorage.getItem(`${V2_PREFIX}tasbeeh`), `${V2_PREFIX}tasbeeh`));
 }
 export function saveTasbeehState(state: TasbeehState): Promise<void> {
-  return enqueueWrite(() => AsyncStorage.setItem(`${V2_PREFIX}tasbeeh`, JSON.stringify(state)));
+  const revision = recordRevision();
+  return enqueueWrite(async () => {
+    if (revision !== recordRevision()) return;
+    readSavedObject(await AsyncStorage.getItem(`${V2_PREFIX}tasbeeh`), `${V2_PREFIX}tasbeeh`);
+    await AsyncStorage.setItem(`${V2_PREFIX}tasbeeh`, JSON.stringify(state));
+  });
+}
+
+export function recoverDamagedPreferences(): Promise<number> {
+  return enqueueRecovery();
+}
+function enqueueRecovery() {
+  const next = writeQueue.then(() => archiveDamagedValues(AsyncStorage, [KEYS.settings, KEYS.location, `${LEGACY_PREFIX}settings`, `${LEGACY_PREFIX}location`, `${V2_PREFIX}tasbeeh`]));
+  writeQueue = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+export function withSavedStorageLock<T>(work: () => Promise<T>): Promise<T> {
+  const task = writeQueue.then(work, work);
+  writeQueue = task.then(() => undefined, () => undefined);
+  return task;
 }

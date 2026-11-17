@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createThemedStyles, radii, shadows, spacing } from "../theme";
 import { BottomSheetModal } from "./BottomSheetModal";
 import { SheetHeader } from "./SheetHeader";
+import {useI18n} from "../i18n/context";
 import { selectionFeedback } from "../utils/feedback";
 
 interface SelectionOption {
@@ -31,6 +32,7 @@ export function SelectionSheet({
 }) {
   const { colors, styles } = useStyles();
   const insets = useSafeAreaInsets();
+  const {t} = useI18n();
   return (
     <BottomSheetModal
       visible={visible}
@@ -38,7 +40,7 @@ export function SelectionSheet({
       onClose={onClose}
       sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
     >
-        <View accessibilityViewIsModal style={{ flexShrink: 1 }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={t(title)} testID="selection-sheet" accessibilityViewIsModal style={{ flexShrink: 1 }}>
           <SheetHeader title={title} onClose={onClose} />
           <ScrollView
             contentContainerStyle={styles.content}

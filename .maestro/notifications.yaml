@@ -1,0 +1,29 @@
+appId: com.hasanbuilds.prayertime
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 60000
+- tapOn: "Settings"
+- tapOn:
+    id: "prayer-start-notifications"
+    checked: false
+- extendedWaitUntil:
+    visible: "Scheduled through .*"
+    timeout: 30000
+- assertVisible:
+    id: "prayer-start-notifications"
+    checked: true
+- assertVisible:
+    id: "prayer-end-reminders"
+    checked: false
+- takeScreenshot: reminders-enabled
+- tapOn:
+    id: "prayer-start-notifications"
+    checked: true
+    enabled: true
+- assertVisible:
+    id: "prayer-start-notifications"
+    checked: false
+- assertNotVisible: "Scheduled through .*"
+- tapOn: "Back"

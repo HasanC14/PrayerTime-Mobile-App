@@ -7,6 +7,14 @@ import { getCompassPresentation, getQiblaBearing, normalizeSignedAngle } from ".
 
 const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 0.000001, `${actual} != ${expected}`);
 
+test("light is the default for new and incomplete settings while explicit appearance choices survive", () => {
+  assert.equal(DEFAULT_SETTINGS.themeMode, "light");
+  for (const value of [null, undefined, {}, {themeMode: "unknown"}]) assert.equal(validateSettings(value).themeMode, "light");
+  for (const themeMode of ["light", "dark", "classic-dark", "system"] as const) {
+    assert.equal(validateSettings({themeMode}).themeMode, themeMode);
+  }
+});
+
 test("Moonlit palms is the default artwork for new, older, or invalid settings", () => {
   assert.equal(DEFAULT_SETTINGS.heroArtwork, "moonlit");
   for (const heroArtwork of [undefined, null, "unknown", "", {}, 1]) {
@@ -79,5 +87,5 @@ test("classic dark restores separately without changing existing dark or system 
     const restored = validateSettings(JSON.parse(JSON.stringify({...DEFAULT_SETTINGS, themeMode})));
     assert.equal(restored.themeMode, themeMode);
   }
-  assert.equal(validateSettings({}).themeMode, "system");
+  assert.equal(validateSettings({}).themeMode, "light");
 });

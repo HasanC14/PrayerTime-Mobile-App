@@ -25,6 +25,7 @@ test("history cleanup removes only retired history and preserves selected locati
 });
 
 test("failed optional history cleanup does not reject or block later settings writes", async t => {
+  t.mock.method(AsyncStorage, "getItem", async () => null);
   t.mock.method(AsyncStorage, "multiRemove", async () => { throw new Error("Storage unavailable"); });
   t.mock.method(console, "warn", () => undefined);
   let written = false;
@@ -35,6 +36,7 @@ test("failed optional history cleanup does not reject or block later settings wr
 });
 
 test("a stalled history removal cannot hold the settings write queue", async t => {
+  t.mock.method(AsyncStorage, "getItem", async () => null);
   let finish!: () => void;
   t.mock.method(AsyncStorage, "multiRemove", () => new Promise<void>(resolve => { finish = resolve; }));
   let written = false;

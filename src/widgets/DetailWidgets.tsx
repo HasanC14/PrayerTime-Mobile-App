@@ -1,64 +1,87 @@
-import { HStack, Image, Rectangle, Text, VStack, ZStack } from "@expo/ui/swift-ui";
-import { aspectRatio, clipped, opacity, padding, resizable, scaleEffect, containerBackground, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, widgetURL } from "@expo/ui/swift-ui/modifiers";
+import { HStack, Image, Rectangle, Spacer, Text, VStack, ZStack } from "@expo/ui/swift-ui";
+import { accessibilityElement, accessibilityLabel, aspectRatio, background, clipped, containerBackground, environment as environmentValue, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, monospacedDigit, opacity, padding, resizable, scaleEffect, shapes, widgetURL } from "@expo/ui/swift-ui/modifiers";
 import { createWidget, type WidgetEnvironment } from "expo-widgets";
 import type { PrayerWidgetProps } from "../services/widgetTimeline";
 
 function DaySummaryLayout(props: PrayerWidgetProps, environment: WidgetEnvironment) {
   "widget";
+  const palette = props?.appearance?.followsSystem && environment.colorScheme === "dark" ? props.appearance.dark : props?.appearance?.light;
   const classic = props?.theme === "classic-dark";
-  const dark = classic || props?.theme === "dark" || (props?.theme !== "light" && environment.colorScheme === "dark");
-  const ink = classic ? "#F4EBFB" : dark ? "#E4E1E8" : "#24143A";
-  const accent = classic ? "#C39BE5" : dark ? "#B5A2CC" : "#6F4B94";
+  const dark = palette?.dark ?? (classic || props?.theme === "dark" || props?.theme === "midnight-blue" || ((!props?.theme || props.theme === "system") && environment.colorScheme === "dark"));
+  const ink = palette?.ink ?? (dark ? "#EEEAF2" : "#24143A");
+  const accent = palette?.accent ?? (dark ? "#C0ACD7" : "#6F4B94");
+  const muted = palette?.muted ?? (dark ? "#BBB5C4" : "#746A7D");
+  const surface = palette?.surface ?? (dark ? "#222329" : "#FFFFFF");
+  const start = palette?.detailStart ?? surface;
+  const end = palette?.detailEnd ?? surface;
+  const line = palette?.line ?? (dark ? "#34343E" : "#ECE5F1");
+  const scale = Math.max(.9, Math.min(props?.textScale ?? 1, 1.2));
+  const align = props?.isRTL ? "trailing" : "leading";
   const summary = props?.summary;
-  return <ZStack alignment="topTrailing" modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(),
-    containerBackground({ type: "linearGradient", colors: [classic ? "#3C2850" : dark ? "#35323D" : "#E3D2F3", classic ? "#60417C" : dark ? "#464050" : "#C5A7E2"], startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }, "widget"), widgetURL("prayertime://prayer")]}>
-    {props?.artworkUri && !props?.empty ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({ ratio: 2, contentMode: "fill" }), frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(), opacity(dark ? 0.24 : 0.82), scaleEffect({ x: props.isRTL ? -1 : 1, y: 1 })]} /> : null}
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: [classic ? "#3C2850F2" : dark ? "#35323DF2" : "#E3D2F3F2", classic ? "#3C2850BF" : dark ? "#35323DBF" : "#E3D2F3BF", "#E3D2F300"], startPoint: { x: props?.isRTL ? 1 : 0, y: 0 }, endPoint: { x: props?.isRTL ? 0 : 1, y: 0 } })]} />
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: ["#C5A7E200", classic ? "#60417C55" : dark ? "#46405055" : "#C5A7E255", classic ? "#60417CCC" : dark ? "#464050CC" : "#C5A7E2CC"], startPoint: { x: 0, y: 0 }, endPoint: { x: 0, y: 1 } })]} />
-    <VStack alignment={props?.isRTL ? "trailing" : "leading"} spacing={5}
-    modifiers={[frame({ maxWidth: 10000, maxHeight: 10000, alignment: props?.isRTL ? "trailing" : "leading" }), padding({ all: 16 })]}>
-    <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(0.6)]}>{summary?.hijri ?? "PrayerTime"}</Text>
-    <Text modifiers={[font({ size: 10 }), foregroundStyle(accent), lineLimit(1)]}>{summary?.date ?? props?.date ?? ""}</Text>
-    <HStack spacing={10}>
-      <VStack alignment={props?.isRTL ? "trailing" : "leading"} spacing={3} modifiers={[frame({ maxWidth: 10000 })]}>
-        <Text modifiers={[font({ size: 10 }), foregroundStyle(accent), lineLimit(1)]}>{summary?.label ?? props?.label ?? "PrayerTime"}</Text>
-        <Text modifiers={[font({ size: 23, weight: "bold" }), foregroundStyle(ink), lineLimit(2), minimumScaleFactor(0.6)]}>{summary?.prayer ?? props?.prayer ?? "Open PrayerTime"}</Text>
-        <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.5)]}>{summary?.range ?? ""}</Text>
-      </VStack>
-      {summary ? <VStack alignment={props?.isRTL ? "trailing" : "leading"} spacing={4} modifiers={[frame({ maxWidth: 10000 })]}>
-        <Text modifiers={[font({ size: 10 }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{summary.sunriseLabel + " · " + summary.sunrise}</Text>
-        <Text modifiers={[font({ size: 10 }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{summary.sunsetLabel + " · " + summary.sunset}</Text>
-        {summary.sehri ? <Text modifiers={[font({ size: 10, weight: "semibold" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{summary.sehriLabel + " · " + summary.sehri}</Text> : null}
-        {summary.iftar ? <Text modifiers={[font({ size: 10, weight: "semibold" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{summary.iftarLabel + " · " + summary.iftar}</Text> : null}
-      </VStack> : null}
-    </HStack>
-    <Text modifiers={[font({ size: 10 }), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(0.7)]}>{props?.location ?? ""}</Text>
-  </VStack></ZStack>;
+  return <ZStack alignment="topTrailing" modifiers={[frame({maxWidth: 10000, maxHeight: 10000}), clipped(),
+    containerBackground({type: "linearGradient", colors: [start, end], startPoint: {x: 0, y: 0}, endPoint: {x: 1, y: 1}}, "widget"), widgetURL("prayertime://prayer"), environmentValue("locale", props?.language === "bn" ? "bn_BD" : props?.language === "ar" || props?.isRTL ? "ar" : "en_US")]}>
+    {props?.artworkUri && !props?.empty ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({contentMode: "fill"}), frame({maxWidth: 10000, maxHeight: 10000, alignment: "topTrailing"}), clipped(), opacity(palette?.detailArtworkOpacity ?? (dark ? .34 : .55)), scaleEffect({x: props.isRTL ? -1 : 1, y: 1})]} /> : null}
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [start + "F2", start + "A6", start + "00"], startPoint: {x: props?.isRTL ? 1 : 0, y: 0}, endPoint: {x: props?.isRTL ? 0 : 1, y: 0}})]} />
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [end + "00", end + "00", end + "E6"], startPoint: {x: 0, y: 0}, endPoint: {x: 0, y: 1}})]} />
+    <VStack alignment={align} spacing={8} modifiers={[frame({maxWidth: 10000, maxHeight: 10000, alignment: align}), padding({all: 16})]}>
+      <Text modifiers={[font({size: 11, weight: "semibold"}), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(.8)]}>{summary?.hijri ?? "PrayerTime"}</Text>
+      <Spacer minLength={0} />
+      <HStack alignment="center" spacing={14}>
+        {(props?.isRTL ? ["stats", "divider", "prayer"] : ["prayer", "divider", "stats"]).map(part => part === "divider"
+          ? <Rectangle key={part} modifiers={[frame({width: 1, height: 64}), foregroundStyle(line)]} />
+          : part === "prayer" ? <VStack key={part} alignment={align} spacing={3} modifiers={[frame({maxWidth: 10000, alignment: align})]}>
+            <Text modifiers={[font({size: 10}), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(.8)]}>{summary?.label ?? props?.label ?? ""}</Text>
+            <Text modifiers={[font({size: 24 * scale, weight: "bold"}), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.65)]}>{summary?.prayer ?? props?.prayer ?? "Open PrayerTime"}</Text>
+            <Text modifiers={[font({size: 11}), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.65)]}>{summary?.range ?? ""}</Text>
+          </VStack> : summary ? <VStack key={part} alignment={align} spacing={2} modifiers={[frame({width: 104, alignment: align})]}>
+            <Text modifiers={[font({size: 10}), foregroundStyle(muted), lineLimit(1)]}>{summary.sehri ? summary.sehriLabel : summary.sunriseLabel}</Text>
+            <Text modifiers={[font({size: 15 * scale, weight: "semibold"}), monospacedDigit(), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.7)]}>{summary.sehri || summary.sunrise}</Text>
+            <Text modifiers={[font({size: 10}), foregroundStyle(muted), padding({top: 6}), lineLimit(1)]}>{summary.iftar ? summary.iftarLabel : summary.sunsetLabel}</Text>
+            <Text modifiers={[font({size: 15 * scale, weight: "semibold"}), monospacedDigit(), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.7)]}>{summary.iftar || summary.sunset}</Text>
+          </VStack> : null)}
+      </HStack>
+      <Spacer minLength={0} />
+      <Text modifiers={[font({size: 10}), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.75)]}>{summary?.date ?? props?.date ?? ""}</Text>
+    </VStack>
+  </ZStack>;
 }
 
 function PrayerTimesLayout(props: PrayerWidgetProps, environment: WidgetEnvironment) {
   "widget";
+  const palette = props?.appearance?.followsSystem && environment.colorScheme === "dark" ? props.appearance.dark : props?.appearance?.light;
   const classic = props?.theme === "classic-dark";
-  const dark = classic || props?.theme === "dark" || (props?.theme !== "light" && environment.colorScheme === "dark");
-  const ink = classic ? "#F4EBFB" : dark ? "#E4E1E8" : "#24143A";
-  const accent = classic ? "#C39BE5" : dark ? "#B5A2CC" : "#6F4B94";
+  const dark = palette?.dark ?? (classic || props?.theme === "dark" || props?.theme === "midnight-blue" || ((!props?.theme || props.theme === "system") && environment.colorScheme === "dark"));
+  const ink = palette?.ink ?? (dark ? "#EEEAF2" : "#24143A");
+  const accent = palette?.accent ?? (dark ? "#C0ACD7" : "#6F4B94");
+  const muted = palette?.muted ?? (dark ? "#BBB5C4" : "#746A7D");
+  const surface = palette?.surface ?? (dark ? "#222329" : "#FFFFFF");
+  const start = palette?.detailStart ?? surface;
+  const end = palette?.detailEnd ?? surface;
+  const highlight = palette?.highlight ?? (dark ? "#35303F" : "#F1E8F7");
+  const scale = Math.max(.9, Math.min(props?.textScale ?? 1, 1.2));
+  const align = props?.isRTL ? "trailing" : "leading";
   const summary = props?.summary;
-  return <ZStack alignment="topTrailing" modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(),
-    containerBackground({ type: "linearGradient", colors: [classic ? "#3C2850" : dark ? "#35323D" : "#E3D2F3", classic ? "#60417C" : dark ? "#464050" : "#C5A7E2"], startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }, "widget"), widgetURL("prayertime://prayer")]}>
-    {props?.artworkUri && !props?.empty ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({ ratio: 2, contentMode: "fill" }), frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(), opacity(dark ? 0.24 : 0.38), scaleEffect({ x: props.isRTL ? -1 : 1, y: 1 })]} /> : null}
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: [classic ? "#3C2850F2" : dark ? "#35323DF2" : "#E3D2F3F2", classic ? "#3C2850BF" : dark ? "#35323DBF" : "#E3D2F3BF", "#E3D2F300"], startPoint: { x: props?.isRTL ? 1 : 0, y: 0 }, endPoint: { x: props?.isRTL ? 0 : 1, y: 0 } })]} />
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: ["#C5A7E200", classic ? "#60417C55" : dark ? "#46405055" : "#C5A7E255", classic ? "#60417CCC" : dark ? "#464050CC" : "#C5A7E2CC"], startPoint: { x: 0, y: 0 }, endPoint: { x: 0, y: 1 } })]} />
-    <VStack alignment={props?.isRTL ? "trailing" : "leading"} spacing={8}
-    modifiers={[frame({ maxWidth: 10000, maxHeight: 10000, alignment: props?.isRTL ? "trailing" : "leading" }), padding({ all: 16 })]}>
-    <Text modifiers={[font({ size: 17, weight: "bold" }), foregroundStyle(ink), lineLimit(1)]}>{summary?.timesLabel ?? "PrayerTime"}</Text>
-    <Text modifiers={[font({ size: 11 }), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(0.7)]}>{summary?.hijri ?? props?.prayer ?? "Open PrayerTime"}</Text>
-    <Text modifiers={[font({ size: 11 }), foregroundStyle(accent), lineLimit(1)]}>{summary?.date ?? props?.date ?? ""}</Text>
-    {summary?.rows.map((row, index) => <VStack key={index} alignment={props?.isRTL ? "trailing" : "leading"} spacing={2} modifiers={[frame({ maxWidth: 10000, alignment: props?.isRTL ? "trailing" : "leading" })]}>
-      <Text modifiers={[font({ size: 13, weight: row.active ? "bold" : "semibold" }), foregroundStyle(row.active ? accent : ink), lineLimit(1)]}>{row.name}</Text>
-      <Text modifiers={[font({ size: 12 }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.5)]}>{row.time}</Text>
-    </VStack>)}
-    <Text modifiers={[font({ size: 11 }), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(0.7)]}>{props?.location ?? ""}</Text>
-  </VStack></ZStack>;
+  return <ZStack alignment="topTrailing" modifiers={[frame({maxWidth: 10000, maxHeight: 10000}), clipped(),
+    containerBackground({type: "linearGradient", colors: [start, end], startPoint: {x: 0, y: 0}, endPoint: {x: 1, y: 1}}, "widget"), widgetURL("prayertime://prayer"), environmentValue("locale", props?.language === "bn" ? "bn_BD" : props?.language === "ar" || props?.isRTL ? "ar" : "en_US")]}>
+    {props?.artworkUri && !props?.empty ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({contentMode: "fill"}), frame({maxWidth: 10000, maxHeight: 10000, alignment: "topTrailing"}), clipped(), opacity(palette?.detailArtworkOpacity ?? (dark ? .34 : .55)), scaleEffect({x: props.isRTL ? -1 : 1, y: 1})]} /> : null}
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [start + "F2", start + "A6", start + "00"], startPoint: {x: props?.isRTL ? 1 : 0, y: 0}, endPoint: {x: props?.isRTL ? 0 : 1, y: 0}})]} />
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [end + "00", end + "00", end + "E6"], startPoint: {x: 0, y: 0}, endPoint: {x: 0, y: 1}})]} />
+    <VStack alignment={align} spacing={8} modifiers={[frame({maxWidth: 10000, maxHeight: 10000, alignment: align}), padding({all: 16})]}>
+      <Text modifiers={[font({size: 18, weight: "bold"}), foregroundStyle(ink), lineLimit(1)]}>{summary?.timesLabel ?? "PrayerTime"}</Text>
+      <Text modifiers={[font({size: 11}), foregroundStyle(accent), lineLimit(1), minimumScaleFactor(.8)]}>{summary?.hijri ?? props?.date ?? ""}</Text>
+      <Spacer minLength={0} />
+      <VStack spacing={3} modifiers={[frame({maxWidth: 10000})]}>
+        {summary?.rows.map((row, index) => <HStack key={index} spacing={8} modifiers={[accessibilityElement("ignore"), accessibilityLabel(row.name + ", " + row.time), padding({horizontal: 10, vertical: 7}), background(row.active ? highlight : "#00000000", shapes.roundedRectangle({cornerRadius: 12}))]}>
+          {props?.isRTL ? <Text modifiers={[font({size: 14 * scale, weight: "semibold"}), monospacedDigit(), foregroundStyle(row.active ? accent : ink), lineLimit(1), minimumScaleFactor(.65)]}>{row.startTime ?? row.time}</Text> : null}
+          {!props?.isRTL ? <Text modifiers={[font({size: 13 * scale, weight: row.active ? "bold" : "medium"}), foregroundStyle(row.active ? accent : ink), lineLimit(1), minimumScaleFactor(.8)]}>{row.name}</Text> : null}
+          <Spacer minLength={8} />
+          {props?.isRTL ? <Text modifiers={[font({size: 13 * scale, weight: row.active ? "bold" : "medium"}), foregroundStyle(row.active ? accent : ink), lineLimit(1), minimumScaleFactor(.8)]}>{row.name}</Text> : <Text modifiers={[font({size: 14 * scale, weight: "semibold"}), monospacedDigit(), foregroundStyle(row.active ? accent : ink), lineLimit(1), minimumScaleFactor(.65)]}>{row.startTime ?? row.time}</Text>}
+        </HStack>)}
+      </VStack>
+      <Spacer minLength={0} />
+      <Text modifiers={[font({size: 10}), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.8)]}>{props?.location ?? ""}</Text>
+    </VStack>
+  </ZStack>;
 }
 
 export const daySummaryWidget = createWidget("DaySummary", DaySummaryLayout);

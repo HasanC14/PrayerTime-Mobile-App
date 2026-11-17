@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "../i18n/native";
+import { Pressable, Text } from "../i18n/native";
 import { useI18n } from "../i18n/context";
 import { AppButton, IconButton, ScreenHeader, SurfaceCard } from "../components/ui";
 import { JournalSummary, PrayerCheck } from "../components/PrayerJournal";
@@ -52,7 +52,7 @@ export function JournalScreen({location, settings, calendar, now, journal, onEna
   function select(key: string) {selectionFeedback();setSelectedKey(key);}
 
   return <View style={styles.screen} testID="journal-screen">
-    <ScreenHeader title="Journal" subtitle="A private record of your prayers" subtitleLines={2} action={
+    <ScreenHeader title="Journal" action={
       <IconButton icon="settings-outline" label="Settings" variant="plain" onPress={onOpenSettings} />
     } />
     <ScrollView ref={scroll} testID="journal-scroll" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, {paddingBottom: Math.max(insets.bottom, 24)}]}>
@@ -73,14 +73,7 @@ export function JournalScreen({location, settings, calendar, now, journal, onEna
               </View>
               <IconButton icon={isRTL ? "chevron-back" : "chevron-forward"} label="Next day" variant="plain" disabled={selectedKey >= activeKey} onPress={() => select(addDaysToDateKey(selectedKey, 1))} />
             </View>
-            <JournalSummary journal={journal} dateKey={selectedKey} />
-            <View style={styles.exemption}>
-              <AppButton label={journal.days[selectedKey]?.exempt ? "Remove exemption" : "Mark day exempt"} variant="quiet"
-                disabled={!journal.ready || journal.busyKey !== null} onPress={() => journal.toggleExempt(selectedKey)} />
-              <Text style={styles.caption}>{journal.days[selectedKey]?.exempt
-                ? "This day is excluded from totals. Existing entries are kept."
-                : "For days when prayer is not obligatory, such as during menstruation."}</Text>
-            </View>
+            <JournalSummary journal={journal} dateKey={selectedKey} showCount={false} />
             {PRAYER_NAMES.map(prayer => {
               const start = selectedDay?.instants[prayer];
               const status = getJournalDayStatus(journal.days, selectedKey, prayer, start, now, activeKey, trackingStart);
@@ -93,6 +86,15 @@ export function JournalScreen({location, settings, calendar, now, journal, onEna
                 <PrayerCheck journal={journal} dateKey={selectedKey} prayer={prayer} start={start} now={now} timeZone={location.timeZone} />
               </View>;
             })}
+            <Pressable accessibilityRole="button"
+              accessibilityHint={journal.days[selectedKey]?.exempt
+                ? "This day is excluded from totals. Existing entries are kept."
+                : "For days when prayer is not obligatory, such as during menstruation."}
+              accessibilityState={{disabled: !journal.ready || journal.busyKey !== null || journal.days[selectedKey]?.unreadable}}
+              disabled={!journal.ready || journal.busyKey !== null || journal.days[selectedKey]?.unreadable} onPress={() => journal.toggleExempt(selectedKey)}
+              style={({pressed}) => [styles.exemption, (pressed || !journal.ready || journal.busyKey !== null) && {opacity: .5}]}>
+              <Text style={styles.exemptionText}>{journal.days[selectedKey]?.exempt ? "Remove exemption" : "Mark day exempt"}</Text>
+            </Pressable>
           </SurfaceCard>
 
           {journal.ready ? <>
@@ -125,5 +127,6 @@ const useStyles = createThemedStyles(colors => StyleSheet.create({
   prayerName: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 15, color: colors.ink},
   status: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, color: colors.inkSoft},
   time: {fontFamily: "BricolageGrotesque_500Medium", fontSize: 12, color: colors.inkSoft, maxWidth: "37%", flexShrink: 1},
-  exemption: {paddingHorizontal: 18, paddingBottom: 12, gap: 6},
+  exemption: {paddingHorizontal: 18, minHeight: 44, alignSelf: "flex-start", justifyContent: "center"},
+  exemptionText: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, color: colors.inkSoft, textDecorationLine: "underline"},
 }));

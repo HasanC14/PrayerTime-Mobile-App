@@ -63,3 +63,16 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Local test reports, crash dumps, and release archives
+/playwright-report/
+/test-results/
+/maestro-artifacts/
+*.heapdump
+*.cpuprofile
+*.trace
+/PrayerTime-Google-Play-Assets-*.zip
+
+/native-test-results.xml
+__pycache__/
+*.py[cod]

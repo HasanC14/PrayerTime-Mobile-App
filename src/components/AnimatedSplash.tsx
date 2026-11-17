@@ -58,12 +58,12 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
       return;
     }
     const reveal = Animated.parallel([
-      Animated.timing(logo, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver }),
+      Animated.timing(logo, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver }),
       Animated.sequence([
-        Animated.delay(80),
-        Animated.timing(title, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver })
+        Animated.delay(40),
+        Animated.timing(title, { toValue: 1, duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver })
       ]),
-      Animated.timing(artwork, { toValue: 1, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver })
+      Animated.timing(artwork, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver })
     ]);
     reveal.start(({ finished }) => { if (finished) setEntered(true); });
     return () => reveal.stop();
@@ -73,7 +73,7 @@ export function AnimatedSplash({ fontsReady, ready, onFinished }: {
     if (!ready || !started || (!entered && !reduceMotion)) return;
     const exit = Animated.timing(opacity, {
       toValue: 0,
-      duration: reduceMotion ? 0 : 280,
+      duration: reduceMotion ? 0 : 160,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver
     });

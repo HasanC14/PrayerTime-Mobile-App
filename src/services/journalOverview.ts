@@ -44,6 +44,7 @@ export function getJournalPeriodSummary(days: PrayerJournalDays, anchor: string,
   const included: string[] = [];
   let exemptDays = 0;
   for (let key = from; key <= to; key = addDaysToDateKey(key, 1)) {
+    if (days[key]?.unreadable) continue;
     if (days[key]?.exempt) exemptDays++;
     else included.push(key);
   }
@@ -79,6 +80,7 @@ export function getJournalStatus(recorded: boolean, start: Date | undefined, now
 
 export function getJournalDayStatus(days: PrayerJournalDays, dateKey: string, prayer: PrayerName, start: Date | undefined,
   now: Date, activeKey: string, trackingStart: string): JournalStatus {
+  if (days[dateKey]?.unreadable) return "unavailable";
   if (days[dateKey]?.exempt) return "exempt";
   if (days[dateKey]?.[prayer]) return "recorded";
   const weekHasEntries = journalWeek(dateKey).some(key => key >= trackingStart && key < activeKey && journalCount(days[key]) > 0);
@@ -93,7 +95,7 @@ export function getJournalReflection(days: PrayerJournalDays, activeDateKey: str
 } | null {
   const firstRecord = Object.keys(days).filter(key => key < activeDateKey && PRAYER_NAMES.some(prayer => days[key]?.[prayer])).sort()[0];
   if (!firstRecord) return null;
-  const dates = Array.from({length: 7}, (_, index) => addDaysToDateKey(activeDateKey, index - 7)).filter(key => key >= firstRecord && !days[key]?.exempt);
+  const dates = Array.from({length: 7}, (_, index) => addDaysToDateKey(activeDateKey, index - 7)).filter(key => key >= firstRecord && !days[key]?.exempt && !days[key]?.unreadable);
   if (dates.length < 2) return null;
   const counts = PRAYER_NAMES.map(prayer => ({prayer, count: dates.filter(key => days[key]?.[prayer]).length, days: dates.length}));
   return counts.reduce((lowest, current) => current.count < lowest.count ? current : lowest);

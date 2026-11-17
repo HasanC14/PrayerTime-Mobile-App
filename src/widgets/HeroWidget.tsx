@@ -1,37 +1,55 @@
 import { HStack, Image, ProgressView, Rectangle, Spacer, Text, VStack, ZStack } from "@expo/ui/swift-ui";
-import { aspectRatio, clipped, containerBackground, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, opacity, padding, progressViewStyle, resizable, scaleEffect, tint, widgetURL } from "@expo/ui/swift-ui/modifiers";
+import { aspectRatio, clipped, containerBackground, environment as environmentValue, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, monospacedDigit, opacity, padding, progressViewStyle, resizable, scaleEffect, tint, widgetURL } from "@expo/ui/swift-ui/modifiers";
 import { createWidget, type WidgetEnvironment } from "expo-widgets";
 import type { PrayerWidgetProps } from "../services/widgetTimeline";
 
 function HeroLayout(props: PrayerWidgetProps, environment: WidgetEnvironment) {
   "widget";
+  const palette = props?.appearance?.followsSystem && environment.colorScheme === "dark" ? props.appearance.dark : props?.appearance?.light;
   const classic = props?.theme === "classic-dark";
-  const dark = classic || props?.theme === "dark" || (props?.theme !== "light" && environment.colorScheme === "dark");
+  const dark = palette?.dark ?? (classic || props?.theme === "dark" || props?.theme === "midnight-blue" || ((!props?.theme || props.theme === "system") && environment.colorScheme === "dark"));
+  const baseStart = palette?.start ?? (classic ? "#3C2850" : dark ? "#30303C" : "#E3D2F3");
+  const baseEnd = palette?.end ?? (classic ? "#60417C" : dark ? "#414052" : "#C5A7E2");
+  const baseInk = palette?.ink ?? (dark ? "#EEEAF2" : "#24143A");
+  const accent = palette?.accent ?? (dark ? "#C0ACD7" : "#6F4B94");
+  const scale = Math.max(.9, Math.min(props?.textScale ?? 1, 1.2));
+  const align = props?.isRTL ? "trailing" : "leading";
   const hero = props?.hero;
-  const start = hero?.danger ? (dark ? "#303035" : "#E7E4EA") : (classic ? "#3C2850" : dark ? "#35323D" : "#E3D2F3");
-  const end = hero?.danger ? (dark ? "#3B393F" : "#D8D4DE") : (classic ? "#60417C" : dark ? "#464050" : "#C5A7E2");
-  const ink = hero?.danger ? (dark ? "#C9C4D1" : "#514C5B") : (classic ? "#F4EBFB" : dark ? "#E4E1E8" : "#24143A");
-  const accent = hero?.danger ? ink : (classic ? "#C39BE5" : dark ? "#B5A2CC" : "#6F4B94");
-  return <ZStack alignment="topTrailing" modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(),
-    containerBackground({ type: "linearGradient", colors: [start, end], startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }, "widget"), widgetURL("prayertime://prayer")]}>
-    {props?.artworkUri && hero && !hero.danger ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({ ratio: 2, contentMode: "fill" }), frame({ maxWidth: 10000, maxHeight: 10000 }), clipped(), opacity(classic ? 0.30 : dark ? 0.18 : 0.94), scaleEffect({ x: props.isRTL ? -1 : 1, y: 1 })]} /> : null}
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: [start + "F2", start + "B3", start + "00"], startPoint: { x: props?.isRTL ? 1 : 0, y: 0 }, endPoint: { x: props?.isRTL ? 0 : 1, y: 0 } })]} />
-    <Rectangle modifiers={[foregroundStyle({ type: "linearGradient", colors: [end + "00", end + "33", end + "F2"], startPoint: { x: 0, y: 0 }, endPoint: { x: 0, y: 1 } })]} />
-    <VStack alignment={props?.isRTL ? "trailing" : "leading"} spacing={7} modifiers={[frame({ maxWidth: 10000, maxHeight: 10000, alignment: props?.isRTL ? "trailing" : "leading" }), padding({ all: 16 })]}>
-      <HStack spacing={6}>
-        <Text modifiers={[font({ size: 23, weight: "bold" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{hero?.prayer ?? props?.prayer ?? "PrayerTime"}</Text>
-        {hero ? <Text modifiers={[font({ size: 11 }), foregroundStyle(accent), lineLimit(1)]}>{hero.phaseLabel}</Text> : null}
+  const start = hero?.danger ? palette?.dangerStart ?? (dark ? "#292930" : "#E7E4EA") : baseStart;
+  const end = hero?.danger ? palette?.dangerEnd ?? (dark ? "#34323D" : "#D8D4DE") : baseEnd;
+  const ink = hero?.danger ? palette?.dangerInk ?? (dark ? "#D9D2E2" : "#514C5B") : baseInk;
+  const tone = hero?.danger ? ink : accent;
+  const muted = hero?.danger ? ink : palette?.heroMuted ?? (dark ? "#CEC4DA" : "#503E5D");
+  const track = (hero?.danger ? palette?.dangerTrack : palette?.track) ?? (dark ? "#696274" : "#AB8BC5");
+  const window = hero?.phase === "starts" ? hero.targetLabel + " " + hero.targetTime : hero?.windowRange;
+  return <ZStack alignment="topTrailing" modifiers={[frame({maxWidth: 10000, maxHeight: 10000}), clipped(),
+    containerBackground({type: "linearGradient", colors: [start, end], startPoint: {x: 0, y: 0}, endPoint: {x: 1, y: 1}}, "widget"), widgetURL("prayertime://prayer"), environmentValue("locale", props?.language === "bn" ? "bn_BD" : props?.language === "ar" || props?.isRTL ? "ar" : "en_US")]}>
+    {props?.artworkUri && !props?.empty && !hero?.danger ? <Image uiImage={props.artworkUri} modifiers={[resizable(), aspectRatio({contentMode: "fill"}), frame({maxWidth: 10000, maxHeight: 10000, alignment: "topTrailing"}), clipped(), opacity(palette?.artworkOpacity ?? (dark ? .3 : .85)), scaleEffect({x: props.isRTL ? -1 : 1, y: 1})]} /> : null}
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [start + "F2", start + "A6", start + "00"], startPoint: {x: props?.isRTL ? 1 : 0, y: 0}, endPoint: {x: props?.isRTL ? 0 : 1, y: 0}})]} />
+    <Rectangle modifiers={[foregroundStyle({type: "linearGradient", colors: [end + "00", end + "00", end + "E6"], startPoint: {x: 0, y: 0}, endPoint: {x: 0, y: 1}})]} />
+    <VStack alignment={align} spacing={4} modifiers={[frame({maxWidth: 10000, maxHeight: 10000, alignment: align}), padding({all: 16})]}>
+      <HStack alignment="firstTextBaseline" spacing={6}>
+        {props?.isRTL && hero ? <Text modifiers={[font({size: 11}), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.8)]}>{hero.phaseLabel}</Text> : null}
+        <Text modifiers={[font({size: Math.min(24, 22 * scale), weight: "bold"}), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.65)]}>{hero?.prayer ?? props?.prayer ?? "PrayerTime"}</Text>
+        {!props?.isRTL && hero ? <Text modifiers={[font({size: 11}), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.8)]}>{hero.phaseLabel}</Text> : null}
       </HStack>
-      {hero ? <Text timerInterval={{ lower: new Date(hero.start), upper: new Date(hero.target) }} countsDown
-        modifiers={[font({ size: 35, weight: "bold" }), foregroundStyle(ink), frame({ width: 190, alignment: props?.isRTL ? "trailing" : "leading" }), lineLimit(1), minimumScaleFactor(0.6)]} /> : <Text modifiers={[font({ size: 14 }), foregroundStyle(ink)]}>{props?.date ?? "Open PrayerTime"}</Text>}
-      {hero ? <ProgressView timerInterval={{ lower: new Date(hero.start), upper: new Date(hero.target) }} countsDown={false} modifiers={[progressViewStyle("linear"), tint(accent)]} /> : null}
-      {hero ? <HStack spacing={6}>
-        <Text modifiers={[font({ size: 11, weight: "medium" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{hero.footerLabel}</Text>
-        <Spacer />
-        <Text modifiers={[font({ size: 11, weight: "semibold" }), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(0.6)]}>{hero.footerTime}</Text>
+      {hero ? <Text timerInterval={{lower: new Date(hero.start), upper: new Date(hero.target)}} countsDown
+        modifiers={[font({size: Math.min(40, 37 * scale), weight: "semibold"}), monospacedDigit(), foregroundStyle(ink), frame({maxWidth: 205, alignment: align}), lineLimit(1), minimumScaleFactor(.7)]} />
+        : <Text modifiers={[font({size: 13}), foregroundStyle(ink), lineLimit(2)]}>{props?.date ?? "Open PrayerTime"}</Text>}
+      {window && scale <= 1.05 ? <Text modifiers={[font({size: 10}), monospacedDigit(), foregroundStyle(muted), lineLimit(1), minimumScaleFactor(.7)]}>{window}</Text> : null}
+      <Spacer minLength={0} />
+      {hero ? <ZStack modifiers={[frame({height: 3}), clipped()]}>
+        <Rectangle modifiers={[foregroundStyle(track), frame({height: 3})]} />
+        <ProgressView timerInterval={{lower: new Date(hero.start), upper: new Date(hero.target)}} countsDown={false} modifiers={[progressViewStyle("linear"), tint(tone), scaleEffect({x: props?.isRTL ? -1 : 1, y: 1})]} />
+      </ZStack> : null}
+      {hero ? <HStack spacing={8}>
+        {props?.isRTL ? <Text modifiers={[font({size: 12, weight: "semibold"}), monospacedDigit(), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.8)]}>{hero.footerTime}</Text> : null}
+        {props?.isRTL ? <Spacer minLength={4} /> : null}
+        <Text modifiers={[font({size: 11}), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.75)]}>{hero.footerLabel}</Text>
+        {!props?.isRTL ? <Spacer minLength={4} /> : null}
+        {!props?.isRTL ? <Text modifiers={[font({size: 12, weight: "semibold"}), monospacedDigit(), foregroundStyle(ink), lineLimit(1), minimumScaleFactor(.8)]}>{hero.footerTime}</Text> : null}
       </HStack> : null}
     </VStack>
   </ZStack>;
 }
-
 export default createWidget("PrayerHero", HeroLayout);

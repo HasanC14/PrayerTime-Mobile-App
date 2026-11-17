@@ -9,7 +9,7 @@ export function useQiblaCompass(enabled: boolean, qiblaBearing: number | null) {
   const [heading, setHeading] = useState<number | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [headingReference, setHeadingReference] = useState<"true" | "magnetic" | null>(null);
-  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const [appActive, setAppActive] = useState(AppState.currentState !== "background" && AppState.currentState !== "inactive");
   const [error, setError] = useState<string | null>(null);
   const [aligned, setAligned] = useState(false);
   const alignedRef = useRef(false);

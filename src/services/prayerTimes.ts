@@ -214,7 +214,7 @@ export function calculatePrayerDay(
     methodId,
     methodName,
     instants,
-    hijriDate: getHijriDate(instants.Dhuhr, location.timeZone)
+    hijriDate: getHijriDate(new Date(instants.Dhuhr.getTime() + (settings.hijriAdjustmentDays || 0) * 86400000), location.timeZone)
   };
 }
 

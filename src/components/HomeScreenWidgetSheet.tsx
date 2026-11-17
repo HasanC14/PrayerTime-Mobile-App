@@ -1,85 +1,51 @@
-import { useMemo, useRef, useState } from "react";
-import { Platform, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "../i18n/native";
+import { Pressable, Text } from "../i18n/native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useI18n } from "../i18n/context";
-import { TextScaleProvider } from "../typography";
 import { BottomSheetModal } from "./BottomSheetModal";
 import { SheetHeader } from "./SheetHeader";
+import { WidgetThumbnail } from "./WidgetThumbnail";
 import { AppButton } from "./ui";
-import { HeroArtwork } from "./HeroArtwork";
-import { PrayerHeroCard } from "./PrayerHeroCard";
-import { getProgressBetween } from "../utils/time";
 import { createThemedStyles, radii } from "../theme";
 import { calculatePrayerCalendar } from "../services/prayerTimes";
 import { REMINDER_CALENDAR_DAYS } from "../services/reminderWindow";
-import { buildHomeWidgetTimeline, HOME_WIDGET_OPTIONS, type HomeWidgetKind, type PrayerWidgetProps } from "../services/widgetTimeline";
+import { buildHomeWidgetTimeline, selectWidgetEntry, HOME_WIDGET_OPTIONS, type HomeWidgetKind, type PrayerWidgetEntry } from "../services/widgetTimeline";
 import { isHomeScreenWidgetAvailable, requestHomeScreenWidget } from "../services/homeScreenWidget";
 import { syncHomeScreenWidget } from "../services/syncHomeScreenWidget";
 import type { AppLocation, AppSettings } from "../types";
+import { selectionFeedback } from "../utils/feedback";
 
 const IOS_GUIDE = "Touch and hold your home screen, tap Edit, then Add Widget. Search for PrayerTime and choose a widget style.";
-
-function WidgetPreview({ kind, preview, settings, location }: { kind: HomeWidgetKind; preview: PrayerWidgetProps | null; settings: AppSettings; location: AppLocation | null }) {
-  const { styles } = useStyles();
-  const { t } = useI18n();
-  const summary = preview?.summary;
-  const hero = preview?.hero;
-  if (kind === "hero" && hero) {
-    const now = new Date();
-    return <View accessible accessibilityLabel={`${t("Widget preview")} · ${t("Prayer card")}`}>
-      <PrayerHeroCard focus={{ prayer: hero.focusPrayer, phase: hero.phase, windowStart: new Date(hero.start), target: new Date(hero.target), progress: 0, startLabel: hero.focusPrayer }}
-        remaining={Math.max(0, hero.target - now.getTime())} progress={getProgressBetween(new Date(hero.start), new Date(hero.target), now)}
-        guidance={hero.danger ? { key: "sunrise", title: "Prohibited time", message: "", start: new Date(hero.start), end: new Date(hero.target) } : null}
-        next={hero.nextPrayer && hero.nextTimestamp ? { name: hero.nextPrayer, date: new Date(hero.nextTimestamp) } : null}
-        timeFormat={settings.timeFormat} timeZone={location?.timeZone ?? "UTC"} artwork={settings.heroArtwork} />
-    </View>;
-  }
-  return <View style={[styles.preview, kind === "next" && styles.compact]} accessible accessibilityLabel={`${t("Widget preview")} · ${t(HOME_WIDGET_OPTIONS.find(item => item.id === kind)!.title)}`}>
-    {preview && !preview.empty ? <View style={styles.artwork}><HeroArtwork artwork={settings.heroArtwork} /></View> : null}
-    {kind === "next" || !summary ? <>
-      <Text style={styles.label}>{preview?.label ?? "PrayerTime"}</Text>
-      <Text style={styles.prayer}>{preview?.prayer ?? "Refresh prayer times"}</Text>
-      {preview?.time ? <Text style={styles.time}>{preview.time}</Text> : null}
-      <Text style={styles.detail}>{preview?.date ?? ""}</Text>
-    </> : <>
-      <Text style={styles.label}>{summary.hijri}</Text>
-      <Text style={styles.detail}>{summary.date}</Text>
-      {kind === "summary" ? <>
-        <Text style={[styles.label, { marginTop: 10 }]}>{summary.label}</Text>
-        <Text style={styles.prayer}>{summary.prayer}</Text>
-        <Text style={styles.range}>{summary.range}</Text>
-        <View style={styles.stats}>
-          <View style={styles.stat}><Text style={styles.detail}>{summary.sunriseLabel}</Text><Text style={styles.statValue}>{summary.sunrise}</Text></View>
-          <View style={styles.stat}><Text style={styles.detail}>{summary.sunsetLabel}</Text><Text style={styles.statValue}>{summary.sunset}</Text></View>
-          {summary.sehri ? <View style={styles.stat}><Text style={styles.detail}>{summary.sehriLabel}</Text><Text style={styles.statValue}>{summary.sehri}</Text></View> : null}
-          {summary.iftar ? <View style={styles.stat}><Text style={styles.detail}>{summary.iftarLabel}</Text><Text style={styles.statValue}>{summary.iftar}</Text></View> : null}
-        </View>
-      </> : summary.rows.map(row => <View key={row.name} style={[styles.prayerRow, row.active && styles.activeRow]}>
-        <Text style={[styles.rowName, row.active && styles.activeText]}>{row.name}</Text>
-        <Text style={styles.rowTime}>{row.time}</Text>
-      </View>)}
-    </>}
-    <Text numberOfLines={2} style={styles.detail}>{preview?.location ?? "PrayerTime"}</Text>
-  </View>;
-}
 
 export function HomeScreenWidgetSheet({ visible, onClose, location, settings }: {
   visible: boolean; onClose: () => void; location: AppLocation | null; settings: AppSettings;
 }) {
   const { styles } = useStyles();
+  const {width, fontScale} = useWindowDimensions();
+  const singleColumn = width < 360 || Math.max(fontScale, settings.textScale) > 1.3;
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState<HomeWidgetKind | null>(null);
+  const [selected, setSelected] = useState<HomeWidgetKind>("hero");
   const busyRef = useRef(false);
   const [message, setMessage] = useState<{ kind: HomeWidgetKind; text: string } | null>(null);
-  const preview = useMemo(() => {
-    try {
+  const [previewEntries, setPreviewEntries] = useState<PrayerWidgetEntry[] | null>(null);
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    if (!visible) return;
+    const frame = requestAnimationFrame(() => {
       const now = new Date();
-      const calendar = visible && location ? calculatePrayerCalendar(location, settings, now, 1, REMINDER_CALENDAR_DAYS) : [];
-      return buildHomeWidgetTimeline(calendar, location, settings, now)[0].props;
-    } catch { return null; }
+      try {
+        const calendar = location ? calculatePrayerCalendar(location, settings, now, 1, REMINDER_CALENDAR_DAYS) : [];
+        setPreviewEntries(buildHomeWidgetTimeline(calendar, location, settings, now));
+      } catch {setPreviewEntries(null);}
+      setClock(now.getTime());
+    });
+    return () => cancelAnimationFrame(frame);
   }, [location, settings, visible]);
+  const preview = previewEntries ? selectWidgetEntry(previewEntries, clock) : null;
   async function addWidget(kind: HomeWidgetKind) {
     if (busyRef.current) return;
     const show = (text: string) => setMessage({ kind, text });
@@ -99,53 +65,46 @@ export function HomeScreenWidgetSheet({ visible, onClose, location, settings }: 
     } catch { show("Couldn't prepare the widget. Please try again."); }
     finally { busyRef.current = false; setBusy(null); }
   }
+  const selectedOption = HOME_WIDGET_OPTIONS.find(option => option.id === selected)!;
   return <BottomSheetModal visible={visible} closeLabel="Close widgets" onClose={onClose} sheetStyle={styles.sheet}>
     <SheetHeader title="Home screen widgets" onClose={onClose} />
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-      <Text style={styles.body}>Choose a widget for your home screen. Tap any widget to open PrayerTime.</Text>
-      <Text style={styles.body}>Uses your prayer card artwork. Change it in Settings → Prayer card artwork.</Text>
-      {Platform.OS === "ios" ? <Text style={styles.notice}>{IOS_GUIDE}</Text> : null}
-      {HOME_WIDGET_OPTIONS.map(option => <View key={option.id} style={styles.option} testID={`widget-option-${option.id}`}>
-        <TextScaleProvider value={Math.min(settings.textScale, 1.2)}><WidgetPreview kind={option.id} preview={preview} settings={settings} location={location} /></TextScaleProvider>
-        <View style={styles.optionHeading}>
-          <View style={styles.copy}><Text style={styles.heading}>{option.title}</Text><Text style={styles.size}>{option.size}</Text></View>
-          <AppButton label="Add" accessibilityLabel={t("Add {widget}", { widget: t(option.title) })} loading={busy === option.id} disabled={busy !== null} onPress={() => void addWidget(option.id)} style={styles.add} />
-        </View>
-        <Text style={styles.body}>{option.description}</Text>
-        {message?.kind === option.id ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{message.text}</Text> : null}
-      </View>)}
-      <Text style={styles.body}>Works offline with your saved location. Opening PrayerTime refreshes the next two weeks and applies location, language, time format, and calculation changes.</Text>
-      <Text style={styles.body}>Your phone controls widget refresh timing. Open PrayerTime after travelling to update your location.</Text>
-      <AppButton label="Done" variant="secondary" onPress={onClose} />
+    <ScrollView style={{flexShrink: 1}} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <Text style={styles.body}>Choose a widget for your home screen.</Text>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t("Widget style")} style={styles.choices}>
+        {HOME_WIDGET_OPTIONS.map(option => <Pressable key={option.id} accessibilityRole="radio" accessibilityLabel={option.title}
+          accessibilityState={{selected: option.id === selected, checked: option.id === selected, disabled: busy !== null}}
+          disabled={busy !== null} testID={`widget-option-${option.id}`} onPress={() => {selectionFeedback(); setSelected(option.id); setMessage(null);}}
+          style={({pressed}) => [styles.choice, singleColumn && styles.singleChoice, selected === option.id && styles.choiceSelected, pressed && {opacity: .7}]}>
+          <View style={styles.sample}><WidgetThumbnail kind={option.id} preview={preview} now={clock} /></View>
+          <View style={styles.caption}>
+            <Text style={[styles.choiceText, selected === option.id && styles.choiceTextSelected]}>{option.title}</Text>
+            <Ionicons name={selected === option.id ? "checkmark-circle" : "ellipse-outline"} size={20}
+              color={selected === option.id ? styles.choiceTextSelected.color : styles.choiceText.color} />
+          </View>
+        </Pressable>)}
+      </View>
+      {message?.kind === selected ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{message.text}</Text> : null}
     </ScrollView>
+    <View style={[styles.actions, {paddingBottom: Math.max(insets.bottom, 20)}]}>
+      <AppButton label={Platform.OS === "ios" ? "How to add" : "Add widget"} icon={Platform.OS === "ios" ? "information-circle-outline" : "add"}
+        accessibilityLabel={Platform.OS === "ios" ? "How to add" : t("Add {widget}", {widget: t(selectedOption.title)})}
+        loading={busy !== null} onPress={() => void addWidget(selected)} />
+    </View>
   </BottomSheetModal>;
 }
 
 const useStyles = createThemedStyles(colors => StyleSheet.create({
   sheet: { alignSelf: "center", width: "100%", maxWidth: 620, maxHeight: "92%", backgroundColor: colors.surface, borderTopLeftRadius: radii.sheet, borderTopRightRadius: radii.sheet, paddingHorizontal: 20 },
-  content: { gap: 18 },
+  content: { gap: 14, paddingBottom: 12 },
   body: { fontFamily: "BricolageGrotesque_400Regular", color: colors.inkSoft, fontSize: 13, lineHeight: 20 },
-  option: { borderWidth: 1, borderColor: colors.border, borderRadius: 24, padding: 14, gap: 12 },
-  preview: { backgroundColor: colors.heroStart, borderRadius: 20, padding: 16, gap: 5, overflow: "hidden" },
-  artwork: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.65 },
-  compact: { maxWidth: 260, width: "100%", alignSelf: "center" },
-  label: { fontFamily: "BricolageGrotesque_600SemiBold", color: colors.accent, fontSize: 12 },
-  prayer: { fontFamily: "BricolageGrotesque_700Bold", color: colors.ink, fontSize: 24, lineHeight: 34 },
-  time: { fontFamily: "BricolageGrotesque_700Bold", color: colors.ink, fontSize: 28, lineHeight: 39 },
-  range: { fontFamily: "BricolageGrotesque_600SemiBold", color: colors.ink, fontSize: 15, lineHeight: 23 },
-  detail: { fontFamily: "BricolageGrotesque_400Regular", color: colors.inkSoft, fontSize: 11, lineHeight: 17 },
-  stats: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginVertical: 8 },
-  stat: { minWidth: "44%", flexGrow: 1, gap: 3 },
-  statValue: { fontFamily: "BricolageGrotesque_600SemiBold", color: colors.ink, fontSize: 12 },
-  prayerRow: { paddingVertical: 7, paddingHorizontal: 6, borderRadius: 8, gap: 3 },
-  activeRow: { backgroundColor: colors.surface },
-  activeText: { color: colors.accent },
-  rowName: { fontFamily: "BricolageGrotesque_600SemiBold", color: colors.ink, fontSize: 12 },
-  rowTime: { fontFamily: "BricolageGrotesque_400Regular", color: colors.inkSoft, fontSize: 12 },
-  optionHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
-  copy: { flex: 1, minWidth: 0, gap: 3 },
-  heading: { fontFamily: "BricolageGrotesque_600SemiBold", color: colors.ink, fontSize: 17 },
-  size: { fontFamily: "BricolageGrotesque_400Regular", color: colors.inkSoft, fontSize: 11 },
-  add: { minWidth: 72 },
+  choices: {flexDirection: "row", flexWrap: "wrap", gap: 10},
+  choice: {flexBasis: "46%", flexGrow: 1, maxWidth: "50%", padding: 6, gap: 10, borderRadius: 18, borderWidth: 1, borderColor: colors.border},
+  singleChoice: {flexBasis: "100%", maxWidth: "100%"},
+  sample: {backgroundColor: colors.background, borderRadius: 12, overflow: "hidden"},
+  caption: {flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6, paddingHorizontal: 6, paddingBottom: 6},
+  choiceSelected: {backgroundColor: colors.selectedSurface, borderColor: colors.accent},
+  choiceText: {flexShrink: 1, color: colors.inkSoft, fontFamily: "BricolageGrotesque_500Medium", fontSize: 14},
+  choiceTextSelected: {color: colors.ink, fontFamily: "BricolageGrotesque_600SemiBold"},
+  actions: {paddingTop: 12},
   notice: { fontFamily: "BricolageGrotesque_500Medium", color: colors.accent, fontSize: 13, lineHeight: 20, backgroundColor: colors.selectedSurface, borderRadius: 14, padding: 14 }
 }));

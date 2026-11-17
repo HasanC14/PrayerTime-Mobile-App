@@ -1,7 +1,7 @@
 import { PRAYER_NAMES } from "../types";
 import type { AppSettings, NotificationAccess, PrayerName } from "../types";
 
-export type ReminderSelection = "all" | PrayerName;
+export type ReminderSelection = "all" | "starts" | PrayerName;
 export type ReminderSetupStep = "notifications" | "timing" | null;
 
 export function reminderSetupStep(access: NotificationAccess, exactAlarmAllowed: boolean | null): ReminderSetupStep {
@@ -10,6 +10,7 @@ export function reminderSetupStep(access: NotificationAccess, exactAlarmAllowed:
 }
 
 export function enableReminderSelection(settings: AppSettings, selection: ReminderSelection): AppSettings {
+  if (selection === "starts") return { ...settings, prayerStartNotificationsEnabled: true };
   if (selection === "all") {
     return {
       ...settings,

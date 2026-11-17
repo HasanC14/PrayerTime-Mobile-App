@@ -1,32 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Platform, StyleSheet, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "@expo-google-fonts/bricolage-grotesque/useFonts";
-import { BricolageGrotesque_400Regular } from "@expo-google-fonts/bricolage-grotesque/400Regular";
-import { BricolageGrotesque_500Medium } from "@expo-google-fonts/bricolage-grotesque/500Medium";
-import { BricolageGrotesque_600SemiBold } from "@expo-google-fonts/bricolage-grotesque/600SemiBold";
-import { BricolageGrotesque_700Bold } from "@expo-google-fonts/bricolage-grotesque/700Bold";
-import { BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque/800ExtraBold";
-
-import { NotoSansBengali_400Regular } from "@expo-google-fonts/noto-sans-bengali/400Regular";
-import { NotoSansBengali_500Medium } from "@expo-google-fonts/noto-sans-bengali/500Medium";
-import { NotoSansBengali_600SemiBold } from "@expo-google-fonts/noto-sans-bengali/600SemiBold";
-import { NotoSansBengali_700Bold } from "@expo-google-fonts/noto-sans-bengali/700Bold";
-import { NotoSansBengali_800ExtraBold } from "@expo-google-fonts/noto-sans-bengali/800ExtraBold";
-import { NotoSansArabic_400Regular } from "@expo-google-fonts/noto-sans-arabic/400Regular";
-import { NotoSansArabic_500Medium } from "@expo-google-fonts/noto-sans-arabic/500Medium";
-import { NotoSansArabic_600SemiBold } from "@expo-google-fonts/noto-sans-arabic/600SemiBold";
-import { NotoSansArabic_700Bold } from "@expo-google-fonts/noto-sans-arabic/700Bold";
-import { NotoSansArabic_800ExtraBold } from "@expo-google-fonts/noto-sans-arabic/800ExtraBold";
 
 import { TextScaleProvider } from "./typography";
-import type { AppLanguage } from "./types";
+import type { AppLanguage, AppSettings } from "./types";
+import { ENGLISH_FONTS } from "./constants/fonts";
+import { loadLanguageFonts } from "./services/appFonts";
+import { useLanguageFonts } from "./hooks/useLanguageFonts";
 import { I18nProvider, useI18n } from "./i18n/context";
 import { AppBackground, AppButton, ScreenHeader, SurfaceCard } from "./components/ui";
 import { Text } from "./i18n/native";
+import {AppErrorBoundary} from "./components/AppErrorBoundary";
+import {recordDiagnostic} from "./services/diagnostics";
 import { StorageIssueNotice } from "./components/StorageIssueNotice";
 import { AnimatedSplash, SPLASH_BACKGROUND } from "./components/AnimatedSplash";
 import { usePrayerTimeApp } from "./hooks/usePrayerTimeApp";
@@ -52,6 +41,8 @@ function PrayerTimeContent({
 }) {
   const { colors, isDark } = useAppTheme();
   const { isRTL } = useI18n();
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const navigationTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
@@ -72,6 +63,12 @@ function PrayerTimeContent({
         <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 22, fontFamily: "BricolageGrotesque_700Bold" }}>{"Couldn't load your saved data"}</Text>
         <Text style={{ color: colors.inkSoft, fontSize: 15, lineHeight: 22 }}>Please try again to restore your settings and location.</Text>
         <AppButton label="Try again" loading={app.booting} onPress={app.retryRestore} />
+        <Text style={{color: colors.inkSoft, fontSize: 13}}>Recovery preserves unreadable settings in a local archive before starting with defaults. Your journal is kept.</Text>
+        <AppButton label="Recover saved settings" variant="secondary" loading={recovering} onPress={() => {
+          setRecovering(true); setRecoveryFailed(false);
+          void app.recoverSavedData().catch(() => setRecoveryFailed(true)).finally(() => setRecovering(false));
+        }} />
+        {recoveryFailed ? <Text accessibilityLiveRegion="polite" style={{color: colors.inkSoft}}>The operation could not be completed. Your existing records have been kept.</Text> : null}
       </SurfaceCard>
     </AppBackground>;
   }
@@ -119,10 +116,30 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
   const app = usePrayerTimeApp();
   const [manualSetupOpen, setManualSetupOpen] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
-  const finishSplash = useCallback(() => setSplashVisible(false), []);
-  const ready = (!app.booting || app.restoreIssue) && fontsReady;
+  const [startedAt] = useState(Date.now);
+  const finishSplash = useCallback(() => {recordDiagnostic("startup", "success", Date.now() - startedAt); setSplashVisible(false);}, [startedAt]);
+  const languageFontsReady = useLanguageFonts(app.settings.language, !app.booting || Boolean(app.restoreIssue));
+  const ready = (!app.booting || app.restoreIssue) && fontsReady && languageFontsReady;
   const { updateSetting } = app;
-  const changeLanguage = useCallback((language: AppLanguage) => updateSetting("language", language), [updateSetting]);
+  const languageRequest = useRef(0);
+  const updateSettingWithFonts = useCallback(<Key extends keyof AppSettings>(key: Key, value: AppSettings[Key]) => {
+    if (key !== "language") {updateSetting(key, value); return;}
+    const request = ++languageRequest.current;
+    // Keep the current screen mounted until the next language is ready.
+    void loadLanguageFonts(value as AppLanguage).catch(() => undefined).then(() => {
+      if (request === languageRequest.current) updateSetting(key, value);
+    });
+  }, [updateSetting]);
+  const changeLanguage = useCallback((language: AppLanguage) => updateSettingWithFonts("language", language), [updateSettingWithFonts]);
+
+  useEffect(() => {
+    if (splashVisible) return;
+    // Give the first interactive frame priority over unused language fonts.
+    const timer = setTimeout(() => {
+      void Promise.all([loadLanguageFonts("bn"), loadLanguageFonts("ar")]).catch(() => undefined);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [splashVisible]);
 
   useEffect(() => {
     if (!manualSetupOpen || app.location) return;
@@ -146,7 +163,7 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
         >
           <AppThemeProvider mode={app.settings.themeMode}>
             <PrayerTimeContent
-              app={app}
+              app={{...app, updateSetting: updateSettingWithFonts}}
               manualSetupOpen={manualSetupOpen}
               setManualSetupOpen={setManualSetupOpen}
             />
@@ -166,23 +183,7 @@ function PrayerTimeApp({ fontsReady }: { fontsReady: boolean }) {
 }
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({
-    BricolageGrotesque_400Regular,
-    BricolageGrotesque_500Medium,
-    BricolageGrotesque_600SemiBold,
-    BricolageGrotesque_700Bold,
-    BricolageGrotesque_800ExtraBold,
-    NotoSansBengali_400Regular,
-    NotoSansBengali_500Medium,
-    NotoSansBengali_600SemiBold,
-    NotoSansBengali_700Bold,
-    NotoSansBengali_800ExtraBold,
-    NotoSansArabic_400Regular,
-    NotoSansArabic_500Medium,
-    NotoSansArabic_600SemiBold,
-    NotoSansArabic_700Bold,
-    NotoSansArabic_800ExtraBold
-  });
+  const [fontsLoaded, fontError] = useFonts(ENGLISH_FONTS);
 
   useEffect(() => {
     if (fontError) console.warn("App fonts could not be loaded", fontError);
@@ -190,7 +191,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <PrayerTimeApp fontsReady={fontsLoaded || Boolean(fontError)} />
+      <AppErrorBoundary><PrayerTimeApp fontsReady={fontsLoaded || Boolean(fontError)} /></AppErrorBoundary>
     </SafeAreaProvider>
   );
 }

@@ -1,15 +1,25 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {getNotificationCoverage, parseNotificationCoverage, type NotificationCoverage} from "./notificationCoverage";
 import { Platform } from "react-native";
 import * as Notifications from "./localNotifications";
 
-import type { AppLanguage, NotificationAccess, PrayerAlarmSettings, PrayerDay } from "../types";
+import type { AppLanguage, NotificationAccess, PrayerDay } from "../types";
 import { translateMessage } from "../i18n/translate";
 import { resolveNotificationAccess } from "./notificationAccess";
-import { getPrayerAlarmOccurrences } from "./prayerPeriods";
 import { getPrayerNotificationIds, savePrayerNotificationIds } from "./storage";
 import { syncPrayerReminders } from "./reminderSync";
-import { reminderTimingKey } from "./reminderSetup";
-import { getReminderWindow } from "./reminderWindow";
+import { buildPrayerNotificationPlan, type PrayerNotificationSettings } from "./prayerNotificationPlan";
 
+const COVERAGE_KEY = "@PrayerTime:v2:notificationCoverage";
+let queue: Promise<unknown> = Promise.resolve();
+function serialize<T>(work: () => Promise<T>): Promise<T> {
+  const task = queue.then(work, work); queue = task.catch(() => undefined); return task;
+}
+export async function readNotificationCoverage(): Promise<NotificationCoverage | null> {
+  try {
+    return parseNotificationCoverage(await AsyncStorage.getItem(COVERAGE_KEY));
+  } catch {return null;}
+}
 const CHANNEL_ID = "prayer-times";
 
 Notifications.setNotificationHandler({
@@ -25,9 +35,9 @@ export async function preparePrayerNotificationChannel(language: AppLanguage = "
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: translateMessage("Prayer times", language),
-    description: translateMessage("Custom alarms before each prayer period ends.", language),
+    description: translateMessage("Notifications when prayers begin and reminders before they end.", language),
     importance: Notifications.AndroidImportance.HIGH,
-    sound: "default",
+    // Omit sound to use Android's default; this SDK treats strings as asset names.
     vibrationPattern: [0, 200, 160, 200],
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC
   });
@@ -50,7 +60,7 @@ export async function ensureNotificationPermission(requestIfNeeded: boolean, lan
 
 export async function cancelPrayerNotifications(): Promise<void> {
   if (Platform.OS === "web") return;
-  await syncPrayerReminders([], notificationAdapter);
+  await serialize(async () => {await syncPrayerReminders([], notificationAdapter); await AsyncStorage.removeItem(COVERAGE_KEY);});
 }
 
 const notificationAdapter = {
@@ -63,43 +73,27 @@ const notificationAdapter = {
 
 export async function schedulePrayerNotifications(
   calendar: PrayerDay[],
-  alarms: PrayerAlarmSettings,
+  settings: PrayerNotificationSettings,
   requestPermission = false,
   exactAlarmAllowed: boolean | null = null,
   language: AppLanguage = "en"
-): Promise<{ scheduled: boolean; count: number; reason?: "permission" }> {
+): Promise<{ scheduled: boolean; count: number; reason?: "permission"; coverage?: NotificationCoverage }> {
+  return serialize(async () => {
   const granted = await ensureNotificationPermission(requestPermission, language);
   if (!granted) return { scheduled: false, count: 0, reason: "permission" };
 
-  const now = new Date();
-  const window = getReminderWindow(Platform.OS);
-  const futureOccurrences = getPrayerAlarmOccurrences(calendar, alarms, now, window.days)
-    .slice(0, window.maxNotifications);
-
-  const reminders = futureOccurrences.map((occurrence) => {
-      const trigger = {
+  const plan = buildPrayerNotificationPlan(calendar, settings, Platform.OS, new Date(), exactAlarmAllowed, language);
+  const reminders = plan.map(({date, ...request}) => ({
+      ...request,
+      trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: occurrence.trigger,
-        ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {})
-      } as Notifications.DateTriggerInput;
-
-      return {
-        identifier: `prayer-end:${occurrence.prayer}:${occurrence.trigger.getTime()}:${occurrence.minutesBeforeEnd}:${reminderTimingKey(exactAlarmAllowed)}:${language}`,
-        content: {
-          title: translateMessage("{prayer} time ending soon", language, { prayer: occurrence.prayer }),
-          body: translateMessage("{prayer} ends in {minutes} minutes.", language, { prayer: occurrence.prayer, minutes: occurrence.minutesBeforeEnd }),
-          sound: "default",
-          data: {
-            kind: "prayer-end-alarm",
-            prayer: occurrence.prayer,
-            dateKey: occurrence.dateKey,
-            minutesBeforeEnd: occurrence.minutesBeforeEnd,
-            periodEnd: occurrence.periodEnd.toISOString()
-          }
-        },
-        trigger
-      };
-  });
+        date,
+        ...(Platform.OS === "android" ? {channelId: CHANNEL_ID} : {})
+      } as Notifications.DateTriggerInput
+    }));
   const count = await syncPrayerReminders(reminders, notificationAdapter);
-  return { scheduled: true, count };
+  const coverage = getNotificationCoverage(plan.map(item => item.date));
+  await AsyncStorage.setItem(COVERAGE_KEY, JSON.stringify(coverage));
+  return { scheduled: true, count, coverage };
+  });
 }

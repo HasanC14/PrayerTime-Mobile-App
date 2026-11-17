@@ -44,7 +44,7 @@ export function GuidanceSheet({
       sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
     >
         <View accessibilityViewIsModal style={{ flexShrink: 1 }}>
-          <SheetHeader title="Prohibited prayer times" subtitle="A simple guide" onClose={onClose} />
+          <SheetHeader title="Prohibited prayer times" onClose={onClose} />
 
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.notice}>

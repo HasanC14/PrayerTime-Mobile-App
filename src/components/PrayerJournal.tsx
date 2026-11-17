@@ -14,10 +14,10 @@ export function PrayerCheck({journal, dateKey, prayer, start, now, timeZone}: {
   const {colors, styles} = useStyles();
   const {t} = useI18n();
   const checked = !journal.days[dateKey]?.exempt && Boolean(journal.days[dateKey]?.[prayer]);
-  const available = !journal.days[dateKey]?.exempt && canRecordPrayer(start, now, checked);
+  const available = !journal.days[dateKey]?.exempt && !journal.days[dateKey]?.unreadable && canRecordPrayer(start, now, checked);
   const disabled = !journal.ready || journal.busyKey !== null || !available;
   const busy = journal.busyKey === `${dateKey}:${prayer}`;
-  return <Pressable accessibilityRole="checkbox" accessibilityLabel={t("{prayer}, prayed", {prayer})}
+  return <Pressable testID={`journal-check-${prayer.toLowerCase()}`} accessibilityRole="checkbox" accessibilityLabel={t("{prayer}, prayed", {prayer})}
     accessibilityHint={!journal.ready || journal.busyKey !== null ? undefined : checked ? "Tap to undo" : !available ? "You can record this prayer after it begins." : "Tap to mark as prayed"}
     accessibilityState={{checked, disabled, busy}} disabled={disabled} onPress={() => journal.toggle(dateKey, prayer, start, now, timeZone)}
     style={[styles.check, disabled && !checked && styles.disabled]}>
@@ -37,10 +37,12 @@ export function JournalSummary({journal, dateKey, showCount = true}: {journal: P
   const {styles} = useStyles();
   const {t} = useI18n();
   const count = journalCount(journal.days[dateKey]);
-  if (!showCount && !journal.loadIssue && !journal.saveIssue) return null;
+  if (!showCount && journal.ready && !journal.loadIssue && !journal.saveIssue && !journal.recoveryIssue) return null;
   return <View style={styles.summary} testID="journal-summary">
+    {!showCount && (!journal.ready || journal.loadIssue) ? <Text accessibilityLiveRegion="polite" style={styles.summaryText}>{journal.loadIssue ? "Your journal could not be loaded." : "Loading your journal…"}</Text> : null}
     {showCount ? <Text accessibilityLiveRegion="polite" style={styles.summaryText}>{journal.ready ? journal.days[dateKey]?.exempt ? "Exempt" : t("{count} of 5 recorded", {count}) : journal.loadIssue ? "Your journal could not be loaded." : "Loading your journal…"}</Text> : null}
     {showCount && journal.ready && count === 5 ? <Text style={styles.complete}>A moment for every prayer.</Text> : null}
+    {journal.recoveryIssue ? <Text accessibilityLiveRegion="polite" style={styles.issueText}>Some saved entries could not be read. Your other records are available; the originals are preserved.</Text> : null}
     {journal.loadIssue ? <AppButton label="Try again" variant="quiet" onPress={journal.retryLoad} /> : null}
     {journal.saveIssue ? <View style={styles.issue}><Text style={styles.issueText}>Your entry could not be saved.</Text><AppButton label="Try again" variant="quiet" onPress={journal.retrySave} /></View> : null}
   </View>;

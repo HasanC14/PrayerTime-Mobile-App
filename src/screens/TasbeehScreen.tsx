@@ -91,6 +91,7 @@ export function TasbeehScreen() {
 
         <View style={styles.counterArea}>
           <Pressable accessibilityRole="button" accessibilityLabel={t("Add one to {name}").replace("{name}", selectedName)}
+            accessibilityValue={{min: 0, max: Math.max(selected.target, count), now: count, text: t("{count} of {target}", {count, target: selected.target})}}
             accessibilityHint={t("{count} of {target}", { count, target: selected.target })} disabled={!ready || count >= MAX_TASBEEH_COUNT}
             onPress={increment} style={({ pressed }) => [styles.counter, { width: size, height: size }, pressed && { transform: [{ scale: 0.985 }] }]}>
             <Svg width={size} height={size} viewBox="0 0 280 280" accessible={false}>
@@ -101,7 +102,7 @@ export function TasbeehScreen() {
             </Svg>
             <View pointerEvents="none" style={styles.countCopy}>
               {!ready ? <ActivityIndicator color={colors.accent} /> : <>
-                <Text accessibilityLiveRegion="polite" adjustsFontSizeToFit numberOfLines={1} style={[styles.count, { fontSize: countFontSize }]}>{count}</Text>
+                <Text testID="tasbeeh-count" accessibilityLiveRegion="polite" adjustsFontSizeToFit numberOfLines={1} style={[styles.count, { fontSize: countFontSize }]}>{count}</Text>
                 <Text style={styles.target}>/ {selected.target}</Text>
               </>}
             </View>

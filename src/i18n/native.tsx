@@ -5,11 +5,14 @@ import { useI18n } from "./context";
 
 function localizedStyle(style: TextStyle | undefined, text: string, isRTL: boolean): TextStyle {
   const script = /[\u0980-\u09FF]/.test(text) ? "Bengali" : /[\u0600-\u06FF]/.test(text) ? "Arabic" : null;
+  const family = script === "Bengali" ? "AnekBangla" : "Tajawal";
   const weight = Number(style?.fontWeight) || Number(style?.fontFamily?.match(/_(\d{3})/)?.[1]) || 400;
-  const face = weight >= 800 ? "800ExtraBold" : weight >= 700 ? "700Bold" : weight >= 600 ? "600SemiBold" : weight >= 500 ? "500Medium" : "400Regular";
+  // Tajawal has no 600 face; use its real Bold font for semibold UI labels.
+  const face = weight >= 800 ? "800ExtraBold" : weight >= 700 || (script === "Arabic" && weight >= 600) ? "700Bold" : weight >= 600 ? "600SemiBold" : weight >= 500 ? "500Medium" : "400Regular";
   const align = style?.textAlign;
   return {
-    ...(script ? { fontFamily: `NotoSans${script}_${face}`, fontWeight: "normal", letterSpacing: 0,
+    ...(!script && !style?.fontFamily ? {fontFamily: `BricolageGrotesque_${face}`, fontWeight: "normal" as const} : {}),
+    ...(script ? { fontFamily: `${family}_${face}`, fontWeight: "normal", letterSpacing: 0,
       lineHeight: Math.max(style?.lineHeight ?? 0, (style?.fontSize ?? 14) * 1.6) } : {}),
     writingDirection: isRTL ? "rtl" : "ltr",
     textAlign: align === "center" || align === "justify" ? align : align === "right" ? isRTL ? "left" : "right" : isRTL ? "right" : "left"
@@ -21,7 +24,7 @@ function scaleStyle(style: TextStyle | undefined, scale: number): TextStyle {
     ...(style?.lineHeight !== undefined ? { lineHeight: style.lineHeight * scale } : {}) };
 }
 
-export const Text = forwardRef<NativeText, TextProps & { localize?: boolean }>(function Text({ children, style, localize = true, accessibilityLabel, accessibilityHint, ...props }, ref) {
+export const Text = forwardRef<NativeText, TextProps & { localize?: boolean; tabIndex?: number }>(function Text({ children, style, localize = true, accessibilityLabel, accessibilityHint, ...props }, ref) {
   const { t, isRTL } = useI18n();
   const scale = useTextScale();
   const translateChildren = (node: ReactNode): ReactNode => {

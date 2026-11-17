@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AccessibilityInfo, findNodeHandle, Text as NativeText, Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
 import { Pressable } from "../i18n/native";
 
 import { createThemedStyles } from "../theme";
 import { useI18n } from "../i18n/context";
+import {SheetFocusContext} from "./SheetFocusContext";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 
 const BACKDROP_DURATION_MS = 170;
@@ -26,6 +27,7 @@ export function BottomSheetModal({
   const { isRTL } = useI18n();
   const { height } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
+  const headingRef = useRef<NativeText>(null);
   const [rendered, setRendered] = useState(visible);
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [sheetProgress] = useState(() => new Animated.Value(1));
@@ -85,14 +87,25 @@ export function BottomSheetModal({
     };
   }, [backdropOpacity, reducedMotion, rendered, sheetProgress, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(() => {
+      if (Platform.OS === "web") headingRef.current?.focus();
+      else {const tag = findNodeHandle(headingRef.current); if (tag) AccessibilityInfo.setAccessibilityFocus(tag);}
+    }, reducedMotion ? 30 : SHEET_DURATION_MS + 30);
+    return () => clearTimeout(timer);
+  }, [reducedMotion, visible]);
+
   return (
     <Modal animationType="none" transparent visible={rendered} onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <View style={[styles.root, { direction: isRTL ? "rtl" : "ltr" }]}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+        <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <Pressable
-            accessibilityRole="button"
+            accessible={false}
+            tabIndex={-1}
             accessibilityLabel={closeLabel}
             onPress={onClose}
+            disabled={!visible}
             style={StyleSheet.absoluteFill}
           />
         </Animated.View>
@@ -101,8 +114,8 @@ export function BottomSheetModal({
           pointerEvents="box-none"
           style={styles.sheetArea}
         >
-          <Animated.View accessibilityViewIsModal style={[sheetStyle, { flexShrink: 1, minHeight: 0, transform: [{ translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}>
-            {children}
+          <Animated.View accessibilityViewIsModal pointerEvents={visible ? "auto" : "none"} style={[sheetStyle, { flexShrink: 1, minHeight: 0, transform: [{ translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }) }] }]}>
+            <SheetFocusContext.Provider value={headingRef}>{children}</SheetFocusContext.Provider>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>

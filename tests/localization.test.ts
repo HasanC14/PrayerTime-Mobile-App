@@ -70,6 +70,15 @@ test("changing display language leaves prayer instants and date keys unchanged",
   }
 });
 
+test("morning/noon/evening clock ranges omit redundant periods while full times retain them", () => {
+  const start = new Date("2026-10-20T05:55:00Z");
+  const end = new Date("2026-10-20T06:10:00Z");
+  assert.equal(formatPrayerTimeRange(start, end, "12h", "Asia/Dhaka", "bn", {omitDayPeriod: true}), "১১:৫৫ – ১২:১০");
+  assert.equal(formatPrayerTimeRange(start, end, "12h", "Asia/Dhaka", "bn"), "১১:৫৫ পূর্বাহ্ণ – ১২:১০ অপরাহ্ণ");
+  assert.equal(formatPrayerTimeRange(start, end, "24h", "Asia/Dhaka", "en", {omitDayPeriod: true}), "11:55 – 12:10");
+  assert.equal(formatPrayerTimeRange(undefined, end, "12h", "Asia/Dhaka", "bn", {omitDayPeriod: true}), "—");
+});
+
 // Countdown boundaries stay accurate without showing zero before the target.
 test("second-precision countdowns localize and cross minute/hour boundaries", () => {
   assert.equal(formatDuration(60_001, "en", true), "1m 01s");

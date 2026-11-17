@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="prayertime_hero_name">بطاقة الصلاة</string>
+  <string name="prayertime_hero_description">بطاقة الصلاة مع الرسم والعد التنازلي والصلاة القادمة.</string>
+  <string name="prayertime_summary_name">ملخص اليوم</string>
+  <string name="prayertime_times_name">أوقات الصلاة</string>
+  <string name="prayertime_summary_description">الصلاة الحالية والتاريخ الهجري وأوقات الشروق والغروب أو السحور والإفطار.</string>
+  <string name="prayertime_times_description">أوقات بدء الصلوات الخمس لليوم.</string>
+  <string name="prayertime_widget_name">الصلاة القادمة</string>
+  <string name="prayertime_widget_description">الصلاة القادمة ووقت بدايتها والموقع المحفوظ. اضغط لفتح PrayerTime.</string>
+</resources>

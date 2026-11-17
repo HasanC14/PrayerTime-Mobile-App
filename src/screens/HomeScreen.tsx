@@ -278,7 +278,7 @@ export function HomeScreen({
             ) : null}
 
             <SurfaceCard style={styles.scheduleCard}>
-              <View style={styles.scheduleHeader}>
+              <View style={[styles.scheduleHeader, compact && styles.scheduleHeaderCompact]}>
                 <Text accessibilityRole="header" style={styles.scheduleTitle}>Prayer times</Text>
                 {settings.prayerTrackingEnabled && journalDateKey ? <JournalCount journal={journal} dateKey={journalDateKey} /> : null}
               </View>
@@ -500,6 +500,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  scheduleHeaderCompact: {alignItems: "flex-start", flexDirection: "column", gap: 4, paddingVertical: 14},
   prayerRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -511,7 +512,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  prayerRowCompact: {paddingVertical: 8},
+  prayerRowCompact: {paddingVertical: 14},
   prayerRowCurrent: { backgroundColor: colors.selectedSurface },
   currentMarker: {
     backgroundColor: colors.accent,
@@ -530,7 +531,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     marginEnd: spacing.sm,
     width: 32,
   },
-  prayerCopy: { flex: 1 },
+  prayerCopy: { flex: 1, minWidth: 0 },
   prayerNameRow: { alignItems: "center", flexDirection: "row", gap: 5 },
   prayerName: {
     color: colors.ink,
@@ -543,7 +544,7 @@ const useStyles = createThemedStyles((colors) => StyleSheet.create({
     fontWeight: "700",
   },
   prayerTimeRange: { alignItems: "flex-end", minWidth: 112 },
-  compactTime: { marginTop: 4 },
+  compactTime: { marginTop: 8, fontFamily: "BricolageGrotesque_500Medium", fontWeight: "500", fontSize: 14, lineHeight: 25 },
   prayerTime: {
     color: colors.ink,
     fontFamily: "BricolageGrotesque_700Bold",

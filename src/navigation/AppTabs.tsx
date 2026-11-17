@@ -161,7 +161,9 @@ export function AppTabs({app}: {app: AppController}) {
           locating={app.locating}
           locationIssue={app.locationIssue}
           locationProgress={app.locationProgress}
-          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled }}
+          notificationControls={{ enabled: app.settings.notificationsEnabled, access: app.notificationAccess, busy: app.notificationBusy, onEnable: app.setNotificationsEnabled,
+            startEnabled: app.settings.prayerStartNotificationsEnabled, onStartEnable: app.setPrayerStartNotificationsEnabled,
+            coverage: app.notificationCoverage, timingAllowed: app.exactAlarmAllowed, onOpenTimingSettings: app.openReminderTimingSettings }}
           onUseCurrentLocation={() => void app.refreshDeviceLocation(true)}
           onSearchLocations={app.searchLocations}
           onUseManualLocation={app.useManualLocation}

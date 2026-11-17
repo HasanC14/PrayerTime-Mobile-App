@@ -19,7 +19,7 @@ export async function syncPrayerReminders<T extends { identifier: string }>(
   const [pending, savedIds] = await Promise.all([adapter.list(), adapter.savedIds().catch(() => [])]);
   const saved = new Set(savedIds);
   const desiredIds = new Set(desired.map((item) => item.identifier));
-  const owned = pending.filter((item) => saved.has(item.identifier) || item.content.data?.kind === "prayer-end-alarm");
+  const owned = pending.filter((item) => saved.has(item.identifier) || item.content.data?.kind === "prayer-end-alarm" || item.content.data?.kind === "prayer-start-alarm");
   const obsolete = owned.filter((item) => !desiredIds.has(item.identifier));
   const cancellation = await Promise.allSettled(obsolete.map((item) => adapter.cancel(item.identifier)));
   const failed = obsolete.filter((_, index) => cancellation[index].status === "rejected").map((item) => item.identifier);

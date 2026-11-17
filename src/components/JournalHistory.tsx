@@ -63,16 +63,10 @@ export function JournalHistory({journal, location, settings, now, activeKey, sel
       <IconButton icon={isRTL ? "chevron-back" : "chevron-forward"} label={period === "week" ? "Next week" : "Next month"} variant="plain" disabled={summary.start >= currentStart} onPress={() => move(1)} />
     </View>
     <View style={styles.overall} testID="journal-period-summary">
-      {summary.total ? <>
-        <Text localize={false} style={styles.ratio}>{t("{ratio} prayers recorded", {ratio: fraction(summary.recorded, summary.total)})}</Text>
-        {summary.recorded > 0 || summary.missed > 0 ? <Text style={styles.caption}>{t("{count} missed", {count: summary.missed})}</Text>
-          : <Text style={styles.caption}>No prayers logged in this period.</Text>}
-        {summary.unlogged > 0 ? <Text style={styles.caption}>{t("{count} without activity", {count: summary.unlogged})}</Text> : null}
-        <Text style={styles.coverage}>{t("Completed days: {start} – {end}", {start: dateLabel(summary.firstIncluded!), end: dateLabel(summary.lastIncluded!)})}</Text>
-      </> : <Text style={styles.caption}>{summary.exemptDays > 0 ? "Exempt days are left out of your prayer totals." : summary.end < summary.trackingStart ? "This period is before tracking began." : "Your summary begins after your first completed day."}</Text>}
+      {summary.total ? <Text localize={false} style={styles.ratio}>{t("{ratio} prayers recorded", {ratio: fraction(summary.recorded, summary.total)})}</Text>
+        : <Text style={styles.caption}>{summary.exemptDays > 0 ? "Exempt days are left out of your prayer totals." : summary.end < summary.trackingStart ? "This period is before tracking began." : "Your summary begins after your first completed day."}</Text>}
     </View>
 
-    {summary.exemptDays > 0 ? <Text style={styles.caption}>{t("{count} exempt days excluded", {count: summary.exemptDays})}</Text> : null}
     {period === "week" ? <>
       <View style={styles.matrix} testID="journal-week-matrix">
         <View style={styles.matrixRow}>
@@ -101,14 +95,6 @@ export function JournalHistory({journal, location, settings, now, activeKey, sel
           })}
         </View>)}
       </View>
-      <View style={styles.legend}>
-        <View style={styles.legendItem}><Ionicons name="checkmark-circle" size={13} color={colors.accent} /><Text style={styles.legendText}>Recorded</Text></View>
-        <View style={styles.legendItem}><Ionicons name="close-circle-outline" size={13} color={colors.inkSoft} /><Text style={styles.legendText}>Missed</Text></View>
-        {week.some(key => journal.days[key]?.exempt) ? <View style={styles.legendItem}><Text localize={false} style={styles.placeholder}>–</Text><Text style={styles.legendText}>Exempt</Text></View> : null}
-        <View style={styles.legendItem}><View style={styles.legendCircle} /><Text style={styles.legendText}>Not recorded</Text></View>
-        <View style={styles.legendItem}><Text localize={false} style={styles.placeholder}>·</Text><Text style={styles.legendText}>Upcoming</Text></View>
-        {week.some(key => key < summary.trackingStart) ? <View style={styles.legendItem}><Text localize={false} style={styles.placeholder}>–</Text><Text style={styles.legendText}>Before tracking</Text></View> : null}
-      </View>
     </> : summary.total ? <View testID="journal-month-breakdown">
       {summary.prayers.map(row => <View key={row.prayer} testID={`journal-month-${row.prayer.toLowerCase()}`} style={styles.monthRow}
         accessible accessibilityRole="progressbar" accessibilityValue={{min: 0, max: row.total, now: row.recorded}}
@@ -119,12 +105,8 @@ export function JournalHistory({journal, location, settings, now, activeKey, sel
           <Text localize={false} style={styles.monthCount}>{fraction(row.recorded, row.total)}</Text>
         </View>
         <View style={styles.progressTrack}><View style={[styles.progressFill, {width: `${row.progress}%`}]} /></View>
-        <Text style={styles.remaining}>{t("{count} missed", {count: row.missed})}</Text>
-        {row.unlogged > 0 ? <Text style={styles.remaining}>{t("{count} without activity", {count: row.unlogged})}</Text> : null}
       </View>)}
     </View> : null}
-    <Text style={styles.note}>Unchecked prayers on completed days count as missed in weeks with recorded prayers. You can update past entries.</Text>
-    <Text style={styles.note}>Weeks without entries are left unassessed. Today’s entries count when the day is complete.</Text>
     {selectedKey !== activeKey ? <Pressable accessibilityRole="button" accessibilityLabel="Return to today" onPress={onReturnToday} style={styles.returnToday}><Text style={styles.returnText}>Return to today</Text></Pressable> : null}
   </SurfaceCard>
     {period === "week" ? <WeeklyReflection journal={journal} anchor={selectedKey} activeKey={activeKey} /> : null}
@@ -140,7 +122,6 @@ const useStyles = createThemedStyles(colors => StyleSheet.create({
   caption: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, color: colors.inkSoft},
   overall: {paddingHorizontal: 4, gap: 6, paddingBottom: 16},
   ratio: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 18, color: colors.accent},
-  coverage: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 10, color: colors.inkSoft},
   matrix: {gap: 2},
   matrixRow: {flexDirection: "row", alignItems: "center", minHeight: 44},
   rowLabel: {width: "32%", paddingEnd: 4, paddingVertical: 6, gap: 3},
@@ -152,18 +133,12 @@ const useStyles = createThemedStyles(colors => StyleSheet.create({
   dayNumber: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 11, color: colors.ink, textAlign: "center"},
   emptyCircle: {width: 13, height: 13, borderRadius: 7, borderWidth: 1.5, borderColor: colors.inkSoft},
   placeholder: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 17, color: colors.inkSoft, textAlign: "center"},
-  legend: {flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 8, paddingTop: 12, paddingHorizontal: 4},
-  legendItem: {flexDirection: "row", alignItems: "center", gap: 5},
-  legendText: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 10, color: colors.inkSoft},
-  legendCircle: {width: 11, height: 11, borderRadius: 6, borderWidth: 1.3, borderColor: colors.inkSoft},
   monthRow: {paddingHorizontal: 4, paddingVertical: 12, gap: 8},
   monthHeading: {flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8},
   monthPrayer: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 15, color: colors.ink},
   monthCount: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 15, color: colors.accent},
   progressTrack: {height: 5, backgroundColor: colors.accentSurface, borderRadius: 4, overflow: "hidden", alignItems: "flex-start"},
   progressFill: {height: 5, backgroundColor: colors.accent, borderRadius: 4},
-  remaining: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 11, color: colors.inkSoft},
-  note: {fontFamily: "BricolageGrotesque_400Regular", fontSize: 10, color: colors.inkSoft, paddingTop: 14, paddingHorizontal: 4},
   returnToday: {minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 12, borderRadius: 12, backgroundColor: colors.accentSurface},
   returnText: {fontFamily: "BricolageGrotesque_600SemiBold", fontSize: 12, color: colors.accent},
 }));

@@ -1,15 +1,18 @@
-import { StyleSheet, View } from "react-native";
+import {useContext} from "react";
+import {SheetFocusContext} from "./SheetFocusContext";
+import { Platform, StyleSheet, View } from "react-native";
 import { Text } from "../i18n/native";
 import { createThemedStyles } from "../theme";
 import { IconButton } from "./ui";
 
 export function SheetHeader({ title, subtitle, onClose }: { title: string; subtitle?: string; onClose: () => void }) {
   const { styles } = useStyles();
+  const headingRef = useContext(SheetFocusContext);
   return <>
     <View style={styles.handle} />
     <View style={styles.row}>
       <View style={styles.copy}>
-        <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+        <Text ref={headingRef ?? undefined} tabIndex={Platform.OS === "web" ? -1 : undefined} accessible accessibilityRole="header" style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       <IconButton icon="close" label={`Close ${title}`} onPress={onClose} />

@@ -6,16 +6,13 @@ The MIT license covers project-owned material. It does not replace the licenses 
 
 Direct and transitive dependency versions are recorded in `package-lock.json`; their license files are distributed in their npm packages. Native dependencies may carry additional notices in their packages. Review them when redistributing compiled applications.
 
-The app uses Bricolage Grotesque, Noto Sans Arabic, and Noto Sans Bengali through the corresponding `@expo-google-fonts` packages. Preserve their bundled font licenses in redistributed font copies. Icons are provided through `@expo/vector-icons` and the project's own brand assets.
+The app uses Bricolage Grotesque, Tajawal (Arabic), and Anek Bangla (Bangla) through the corresponding `@expo-google-fonts` packages. Preserve their bundled font licenses in redistributed font copies. Icons are provided through `@expo/vector-icons` and the project's own brand assets.
 
 ## Religious passages
 
-`src/content/prayerReflections.ts` contains short English excerpts with source URLs and references:
+`src/content/prayerReflections.ts` and `src/content/additionalReflections.ts` contain Quran-based reflections. Short English translation excerpts are attributed to Dr. Mustafa Khattab, *The Clear Quran*, accessed through Quran.com. Passage and Tafsir Ibn Kathir links are kept with each reflection. App-written explanations are separate from quotations. See [the reflection guide](docs/reflections.md).
 
-- Quran translations attributed to Dr. Mustafa Khattab, *The Clear Quran*, accessed through Quran.com.
-- Hadith translations attributed to Sunnah.com, with collection and hadith numbers.
-
-These translations are attributed third-party material, not original MIT-licensed prose. Source links and attribution are not a substitute for permission. Review the relevant translation providers' redistribution terms before expanding the collection or reusing it separately. Keep practical app advice distinct from quotations.
+These translations are third-party material. The MIT license does not cover them. Source links do not replace permission. Check the providers' reuse terms before redistributing or expanding the collection.
 
 ## Bundled artwork
 

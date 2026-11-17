@@ -6,8 +6,8 @@ import { useAppTheme } from "../theme";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import { selectionFeedback } from "../utils/feedback";
 
-export function PillSwitch({ value, disabled = false, busy = false, label, onValueChange }: {
-  value: boolean; disabled?: boolean; busy?: boolean; label: string; onValueChange: (value: boolean) => void;
+export function PillSwitch({ value, disabled = false, busy = false, label, onValueChange, testID }: {
+  value: boolean; disabled?: boolean; busy?: boolean; label: string; onValueChange: (value: boolean) => void; testID?: string;
 }) {
   const { colors } = useAppTheme();
   const { isRTL } = useI18n();
@@ -25,7 +25,7 @@ export function PillSwitch({ value, disabled = false, busy = false, label, onVal
       if (!event.repeat && !disabled && !busy) { selectionFeedback(); onValueChange(!value); }
     }
   } : {};
-  return <Pressable {...keyboardProps} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: disabled || busy, busy }}
+  return <Pressable {...keyboardProps} testID={testID} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: disabled || busy, busy }}
     disabled={disabled || busy} hitSlop={8} onPress={() => { selectionFeedback(); onValueChange(!value); }}
     style={[styles.track, { borderColor: colors.accent, backgroundColor: value ? colors.accent : "transparent", opacity: disabled ? 0.4 : 1 }]}>
     <Animated.View style={[styles.thumb, { backgroundColor: value ? colors.onAccent : colors.accent,

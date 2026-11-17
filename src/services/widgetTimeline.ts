@@ -1,8 +1,9 @@
 import { locales, localizeDigits, translateMessage } from "../i18n/translate";
-import { PRAYER_NAMES, type AppLocation, type AppSettings, type HeroArtworkId, type PrayerDay, type PrayerName } from "../types";
+import { PRAYER_NAMES, type AppLanguage, type AppLocation, type AppSettings, type HeroArtworkId, type PrayerDay, type PrayerName } from "../types";
 import { formatPrayerTime, formatPrayerTimeRange, formatShortDate, getCurrentPrayerGuidance, getPrayerGuidanceWindows, getPrayerState } from "../utils/time";
 import { addDaysToDateKey, getDateKeyInTimeZone } from "./prayerTimes";
 import { getPrayerFocus, getPrayerPeriods } from "./prayerPeriods";
+import { getWidgetAppearance } from "../constants/appearance";
 
 export const WIDGET_CALENDAR_DAYS = 14;
 export type HomeWidgetKind = "hero" | "next" | "summary" | "times";
@@ -10,7 +11,7 @@ export const HOME_WIDGET_OPTIONS = [
   { id: "hero", title: "Prayer card", description: "Your app's hero card, with artwork and a prayer countdown.", size: "Wide" },
   { id: "next", title: "Next prayer", description: "The next prayer and its start time.", size: "Small" },
   { id: "summary", title: "Day summary", description: "Current prayer, Hijri date, sunrise and sunset. Fasting times appear when enabled.", size: "Wide" },
-  { id: "times", title: "Prayer times", description: "All five prayer periods for your day.", size: "Large" }
+  { id: "times", title: "Prayer times", description: "All five prayer start times for your day.", size: "Large" }
 ] as const;
 
 export interface PrayerWidgetProps {
@@ -21,13 +22,16 @@ export interface PrayerWidgetProps {
   location: string;
   theme: AppSettings["themeMode"];
   isRTL: boolean;
+  language?: AppLanguage;
   textScale: number;
   empty: boolean;
   artwork: HeroArtworkId;
   artworkUri?: string;
+  appearance?: ReturnType<typeof getWidgetAppearance>;
   hero?: {
     prayer: string; focusPrayer: PrayerName | "Salatud Doha"; phase: "starts" | "ends";
     phaseLabel: string; targetLabel: string; start: number; target: number; targetTime: string;
+    windowRange?: string;
     footerLabel: string; footerTime: string; nextPrayer: PrayerName | null; nextTimestamp: number | null;
     danger: boolean;
   };
@@ -36,7 +40,7 @@ export interface PrayerWidgetProps {
     sunrise: string; sunset: string; sehri: string; iftar: string;
     sunriseLabel: string; sunsetLabel: string; sehriLabel: string; iftarLabel: string;
     timesLabel: string;
-    rows: { name: string; time: string; active: boolean }[];
+    rows: { name: string; time: string; startTime?: string; active: boolean }[];
   };
 }
 
@@ -53,7 +57,7 @@ export function buildWidgetTimeline(
   const t = (message: string) => translateMessage(message, settings.language);
   const base = {
     label: t("Next prayer"), location: location ? t(location.name) : "PrayerTime",
-    theme: settings.themeMode, isRTL: settings.language === "ar", textScale: settings.textScale, artwork: settings.heroArtwork
+    theme: settings.themeMode, appearance: getWidgetAppearance(settings.themeMode), isRTL: settings.language === "ar", language: settings.language, textScale: settings.textScale, artwork: settings.heroArtwork
   };
   const empty: PrayerWidgetProps = {
     ...base, label: "PrayerTime", prayer: t(location ? "Refresh prayer times" : "Choose your location"),
@@ -131,6 +135,7 @@ export function buildHomeWidgetTimeline(calendar: PrayerDay[], location: AppLoca
       phase: heroPhase, phaseLabel: t(heroPhase === "ends" ? "ends in" : "starts in"),
       targetLabel: t(heroPhase === "ends" ? "Ends at" : "Starts at"),
       start: (guidance?.start ?? focus.windowStart).getTime(), target: heroTarget.getTime(), targetTime: format(heroTarget),
+      windowRange: heroPhase === "ends" ? formatPrayerTimeRange(guidance?.start ?? focus.windowStart, heroTarget, settings.timeFormat, location.timeZone, settings.language) : undefined,
       footerLabel: showNext ? translateMessage("Next · {prayer}", settings.language, { prayer: next.name }) : t(heroPhase === "ends" ? "Ends at" : "Starts at"),
       footerTime: format(showNext ? next.date : heroTarget), nextPrayer: next?.name ?? null, nextTimestamp: next?.date.getTime() ?? null,
       danger: Boolean(guidance)
@@ -143,7 +148,7 @@ export function buildHomeWidgetTimeline(calendar: PrayerDay[], location: AppLoca
       try {
         hijri = new Intl.DateTimeFormat(`${locales[settings.language].split('-u-')[0]}-u-ca-islamic-civil`, {
           timeZone: location.timeZone, day: "numeric", month: "long", year: "numeric"
-        }).format(day.instants.Dhuhr);
+        }).format(new Date(day.instants.Dhuhr.getTime() + (settings.hijriAdjustmentDays || 0) * 86400000));
       } catch { /* Use the app's calculated Hijri date when this calendar is unavailable. */ }
       details = {
         date: formatShortDate(instant, location.timeZone, settings.language), hijri: localizeDigits(hijri, settings.language),
@@ -152,7 +157,7 @@ export function buildHomeWidgetTimeline(calendar: PrayerDay[], location: AppLoca
         sunriseLabel: t("Sunrise"), sunsetLabel: t("Sunset"), sehriLabel: t("Sehri ends"), iftarLabel: t("Iftar"), timesLabel: t("Prayer times"),
         rows: PRAYER_NAMES.map(name => {
           const period = periods.find(item => item.dateKey === day.dateKey && item.prayer === name);
-          return { name: t(name), time: period ? formatPrayerTimeRange(period.start, period.end, settings.timeFormat, location.timeZone, settings.language) : format(day.instants[name]),
+          return { name: t(name), startTime: format(day.instants[name]), time: period ? formatPrayerTimeRange(period.start, period.end, settings.timeFormat, location.timeZone, settings.language) : format(day.instants[name]),
             active: false };
         })
       };
